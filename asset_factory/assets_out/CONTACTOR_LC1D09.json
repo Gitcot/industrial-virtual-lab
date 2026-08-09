@@ -1,0 +1,12 @@
+{
+    "name": "Contacteur TeSys D LC1D09",
+    "asset_type": "CONTACTOR",
+    "glb_path": "/assets/CONTACTOR_LC1D09.glb",
+    "polycount": 1524,
+    "dimensions": [
+        45.0,
+        75.0,
+        90.0
+    ],
+    "manufacturer": "Generic"
+}

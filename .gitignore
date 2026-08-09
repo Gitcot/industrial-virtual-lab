@@ -1,0 +1,14 @@
+# Environnements virtuels Python
+venv/
+env/
+.venv/
+**/venv/
+
+# Caches et logs
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Dépendances Frontend
+node_modules/
+dist/

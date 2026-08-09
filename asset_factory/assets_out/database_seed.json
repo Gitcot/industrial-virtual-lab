@@ -1,0 +1,62 @@
+[
+    {
+        "asset_id": "BTN_START",
+        "name": "Bouton Poussoir Vert (START)",
+        "type": "BUTTON_NO",
+        "glb_path": "/assets/BTN_START.glb",
+        "polycount": 1004,
+        "dimensions": [
+            30.0,
+            29.99067497253418,
+            12.5
+        ]
+    },
+    {
+        "asset_id": "BTN_STOP",
+        "name": "Bouton Coup de Poing (STOP)",
+        "type": "BUTTON_NC",
+        "glb_path": "/assets/BTN_STOP.glb",
+        "polycount": 1004,
+        "dimensions": [
+            30.0,
+            29.99067497253418,
+            14.0
+        ]
+    },
+    {
+        "asset_id": "BREAKER",
+        "name": "Disjoncteur Moteur",
+        "type": "CIRCUIT_BREAKER",
+        "glb_path": "/assets/BREAKER.glb",
+        "polycount": 28,
+        "dimensions": [
+            35.0,
+            85.0,
+            77.5
+        ]
+    },
+    {
+        "asset_id": "RELAY",
+        "name": "Relais Thermique",
+        "type": "THERMAL_RELAY",
+        "glb_path": "/assets/RELAY.glb",
+        "polycount": 1524,
+        "dimensions": [
+            45.0,
+            60.0,
+            80.0
+        ]
+    },
+    {
+        "asset_id": "MOTOR",
+        "name": "Moteur Asynchrone Triphasé",
+        "type": "MOTOR_AC",
+        "glb_path": "/assets/MOTOR.glb",
+        "polycount": 1080,
+        "dimensions": [
+            135.0,
+            80.0,
+            89.98756790161133
+        ]
+    }
+]

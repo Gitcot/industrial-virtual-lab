@@ -1,0 +1,218 @@
+{
+  "name": "Démarrage Étoile-Triangle Automatique",
+  "version": "1.1",
+  "components": [
+    {
+      "id": "power",
+      "type": "PowerSource",
+      "name": "Alimentation 24V"
+    },
+    {
+      "id": "thermal_f1",
+      "type": "ThermalRelay",
+      "name": "Relais Thermique F1"
+    },
+    {
+      "id": "btn_stop",
+      "type": "PushButton",
+      "name": "Bouton STOP S1",
+      "normally_closed": true
+    },
+    {
+      "id": "btn_start",
+      "type": "PushButton",
+      "name": "Bouton START S2",
+      "normally_closed": false
+    },
+    {
+      "id": "km1",
+      "type": "Contactor",
+      "name": "Contacteur de Ligne KM1"
+    },
+    {
+      "id": "km2",
+      "type": "Contactor",
+      "name": "Contacteur Étoile KM2"
+    },
+    {
+      "id": "km3",
+      "type": "Contactor",
+      "name": "Contacteur Triangle KM3"
+    },
+    {
+      "id": "ka1",
+      "type": "TimerRelay",
+      "name": "Relais Temporisé KA1"
+    },
+    {
+      "id": "motor",
+      "type": "Motor",
+      "name": "Moteur Asynchrone M1"
+    }
+  ],
+  "nets": [
+    "24V",
+    "AFTER_F1",
+    "MID",
+    "HOLD_NET",
+    "TIMER_NC",
+    "TIMER_NO",
+    "U1",
+    "V1",
+    "W1",
+    "KM2_COIL",
+    "KM3_COIL"
+  ],
+  "connections": [
+    {
+      "comp": "power",
+      "terminal": "OUT",
+      "net": "24V"
+    },
+    {
+      "comp": "thermal_f1",
+      "terminal": "95",
+      "net": "24V"
+    },
+    {
+      "comp": "thermal_f1",
+      "terminal": "96",
+      "net": "AFTER_F1"
+    },
+    {
+      "comp": "btn_stop",
+      "terminal": "IN",
+      "net": "AFTER_F1"
+    },
+    {
+      "comp": "btn_stop",
+      "terminal": "OUT",
+      "net": "MID"
+    },
+    {
+      "comp": "btn_start",
+      "terminal": "IN",
+      "net": "MID"
+    },
+    {
+      "comp": "btn_start",
+      "terminal": "OUT",
+      "net": "HOLD_NET"
+    },
+    {
+      "comp": "km1",
+      "terminal": "13",
+      "net": "MID"
+    },
+    {
+      "comp": "km1",
+      "terminal": "14",
+      "net": "HOLD_NET"
+    },
+    {
+      "comp": "km1",
+      "terminal": "A1",
+      "net": "HOLD_NET"
+    },
+    {
+      "comp": "ka1",
+      "terminal": "A1",
+      "net": "HOLD_NET"
+    },
+    {
+      "comp": "ka1",
+      "terminal": "55",
+      "net": "HOLD_NET"
+    },
+    {
+      "comp": "ka1",
+      "terminal": "56",
+      "net": "TIMER_NC"
+    },
+    {
+      "comp": "km3",
+      "terminal": "21",
+      "net": "TIMER_NC"
+    },
+    {
+      "comp": "km3",
+      "terminal": "22",
+      "net": "KM2_COIL"
+    },
+    {
+      "comp": "km2",
+      "terminal": "A1",
+      "net": "KM2_COIL"
+    },
+    {
+      "comp": "ka1",
+      "terminal": "67",
+      "net": "HOLD_NET"
+    },
+    {
+      "comp": "ka1",
+      "terminal": "68",
+      "net": "TIMER_NO"
+    },
+    {
+      "comp": "km2",
+      "terminal": "21",
+      "net": "TIMER_NO"
+    },
+    {
+      "comp": "km2",
+      "terminal": "22",
+      "net": "KM3_COIL"
+    },
+    {
+      "comp": "km3",
+      "terminal": "A1",
+      "net": "KM3_COIL"
+    },
+    {
+      "comp": "km1",
+      "terminal": "L1",
+      "net": "24V"
+    },
+    {
+      "comp": "km1",
+      "terminal": "L2",
+      "net": "24V"
+    },
+    {
+      "comp": "km1",
+      "terminal": "L3",
+      "net": "24V"
+    },
+    {
+      "comp": "km1",
+      "terminal": "T1",
+      "net": "U1"
+    },
+    {
+      "comp": "km1",
+      "terminal": "T2",
+      "net": "V1"
+    },
+    {
+      "comp": "km1",
+      "terminal": "T3",
+      "net": "W1"
+    },
+    {
+      "comp": "motor",
+      "terminal": "L1",
+      "net": "U1"
+    },
+    {
+      "comp": "motor",
+      "terminal": "L2",
+      "net": "V1"
+    },
+    {
+      "comp": "motor",
+      "terminal": "L3",
+      "net": "W1"
+    }
+  ]
+}

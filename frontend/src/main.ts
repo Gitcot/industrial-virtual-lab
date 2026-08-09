@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // ==========================================
-// 🎵 MOTEUR AUDIO (DYNAMIQUE ÉTOILE/TRIANGLE)
+// 🎵 MOTEUR AUDIO 
 // ==========================================
 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
 let motorOsc: OscillatorNode | null = null;
@@ -44,8 +44,7 @@ function setMotorSound(running: boolean, isStar: boolean = false) {
     motorOsc = audioCtx.createOscillator();
     motorGain = audioCtx.createGain();
     motorOsc.connect(motorGain); motorGain.connect(audioCtx.destination);
-    motorOsc.type = 'triangle'; 
-    // Fréquence plus basse (35Hz) si Étoile, normale (50Hz) si Triangle ou Direct
+    motorOsc.type = 'triangle';
     const initialFreq = isStar ? 35 : 50;
     motorOsc.frequency.setValueAtTime(initialFreq, audioCtx.currentTime);
     motorGain.gain.setValueAtTime(0, audioCtx.currentTime);
@@ -105,15 +104,22 @@ const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.5); dirLight1.position.
 // ==========================================
 // 2. ÉTATS GLOBAUX & MATÉRIAUX
 // ==========================================
-let simMode = 'direct'; 
+let simMode = 'direct';
 let isCoverOpen = false;
+let isBypassActive = false; // <-- BYPASS SÉCURITÉ
 let currentCoupling = 'star';
 let isMotorRunning = false, isFaultActive = false;
 let isKm1 = false, isKm2 = false, isKm3 = false;
 
-// Variables pour l'inertie du rotor
 let currentRotorSpeed = 0;
 let targetRotorSpeed = 0;
+
+// Variables du Multimètre
+let probeRedMesh: THREE.Mesh;
+let probeBlackMesh: THREE.Mesh;
+let activeProbe: 'red' | 'black' | null = null;
+let nodeRed: string | null = null;
+let nodeBlack: string | null = null;
 
 let panelLedOrangeMat: THREE.MeshStandardMaterial, panelLedBlueMat: THREE.MeshStandardMaterial;
 let km1LedMat: THREE.MeshStandardMaterial | null = null;
@@ -125,20 +131,17 @@ const interactiveButtons: THREE.Mesh[] = [];
 
 // --- COFFRET DE COMMANDE DYNAMIQUE 3D ---
 const cabinetGroup = new THREE.Group();
-// On l'éloigne beaucoup plus : à gauche et au fond !
-cabinetGroup.position.set(-140, 35, -60); 
+cabinetGroup.position.set(0, 65, -70);
 scene.add(cabinetGroup);
 
 function buildCabinet(mode: string) {
-  while(cabinetGroup.children.length > 0) {
-    cabinetGroup.remove(cabinetGroup.children[0]);
-  }
+  while (cabinetGroup.children.length > 0) cabinetGroup.remove(cabinetGroup.children[0]);
 
   const createContactor = (x: number) => {
     const c = new THREE.Mesh(new THREE.BoxGeometry(10, 14, 8), new THREE.MeshStandardMaterial({ color: 0x222222 }));
     c.position.set(x, 0, 4);
     cabinetGroup.add(c);
-    
+
     const ledMat = new THREE.MeshStandardMaterial({ color: 0x004400, emissive: 0x000000 });
     const led = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 1), ledMat);
     led.position.set(x, 2, 8.5);
@@ -150,8 +153,7 @@ function buildCabinet(mode: string) {
     const board = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 4), new THREE.MeshStandardMaterial({ color: 0x555555 }));
     cabinetGroup.add(board);
     km1LedMat = createContactor(0);
-    km2LedMat = null;
-    km3LedMat = null;
+    km2LedMat = null; km3LedMat = null;
   } else {
     const board = new THREE.Mesh(new THREE.BoxGeometry(45, 20, 4), new THREE.MeshStandardMaterial({ color: 0x555555 }));
     cabinetGroup.add(board);
@@ -194,8 +196,8 @@ function create3DPushButtons() {
     btn.position.set(x, 11, 0); btn.userData = { id, type, initialY: 11 };
     panelGroup.add(btn); interactiveButtons.push(btn);
   };
-  createBtn(0x27ae60, -24, 'btn_start', 'pulse'); 
-  createBtn(0xc0392b, -8, 'btn_stop', 'pulse');   
+  createBtn(0x27ae60, -24, 'btn_start', 'pulse');
+  createBtn(0xc0392b, -8, 'btn_stop', 'pulse');
 
   const ledGeo = new THREE.CylinderGeometry(4, 4, 3, 32);
   panelLedOrangeMat = new THREE.MeshStandardMaterial({ color: 0x442200, emissive: 0x000000 });
@@ -208,7 +210,7 @@ function create3DPushButtons() {
 }
 create3DPushButtons();
 
-// --- BOÎTE À BORNES MOTEUR ---
+// --- BOÎTE À BORNES MOTEUR & POINTES DE MULTIMÈTRE ---
 function createTerminalBox() {
   const boxGroup = new THREE.Group(); boxGroup.position.set(0, 32, -15);
   boxGroup.add(new THREE.Mesh(new THREE.BoxGeometry(32, 18, 28), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6 })));
@@ -216,11 +218,18 @@ function createTerminalBox() {
   const plateMesh = new THREE.Mesh(new THREE.BoxGeometry(26, 4, 22), new THREE.MeshStandardMaterial({ color: 0xdedede }));
   plateMesh.position.y = 8; boxGroup.add(plateMesh);
 
+  const studGeo = new THREE.CylinderGeometry(2, 2, 6, 16);
   const studMat = new THREE.MeshStandardMaterial({ color: 0xf39c12, metalness: 0.9, roughness: 0.2 });
-  const positions = [{ name: "W2", pos: [-8, 12, -6] }, { name: "U2", pos: [0, 12, -6] }, { name: "V2", pos: [8, 12, -6] }, { name: "U1", pos: [-8, 12, 6] }, { name: "V1", pos: [0, 12, 6] }, { name: "W1", pos: [8, 12, 6] }];
+  const positions = [
+    { name: "W2", pos: [-8, 12, -6] }, { name: "U2", pos: [0, 12, -6] }, { name: "V2", pos: [8, 12, -6] },
+    { name: "U1", pos: [-8, 12, 6] }, { name: "V1", pos: [0, 12, 6] }, { name: "W1", pos: [8, 12, 6] }
+  ];
   positions.forEach(p => {
-    const stud = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 6, 16), studMat);
-    stud.position.set(p.pos[0], p.pos[1], p.pos[2]); boxGroup.add(stud);
+    const stud = new THREE.Mesh(studGeo, studMat);
+    stud.position.set(p.pos[0], p.pos[1], p.pos[2]);
+    stud.userData = { id: p.name, type: 'terminal', net: p.name };
+    boxGroup.add(stud);
+    interactiveButtons.push(stud);
   });
 
   const strapMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.1 });
@@ -233,15 +242,26 @@ function createTerminalBox() {
   });
   deltaStraps.visible = false; boxGroup.add(deltaStraps);
 
-  coverGroup = new THREE.Group(); coverGroup.position.set(0, 9, -14); 
+  coverGroup = new THREE.Group(); coverGroup.position.set(0, 9, -14);
   const coverMesh = new THREE.Mesh(new THREE.BoxGeometry(32, 2, 28), new THREE.MeshPhysicalMaterial({ color: 0xdddddd, transmission: 0.9, transparent: true, side: THREE.DoubleSide }));
   coverMesh.position.set(0, 1, 14); coverMesh.userData = { id: 'cover', type: 'cover' };
   coverGroup.add(coverMesh); boxGroup.add(coverGroup); interactiveButtons.push(coverMesh);
+
+  const probeGeo = new THREE.ConeGeometry(1.5, 12, 16);
+  probeGeo.rotateX(Math.PI);
+  probeGeo.translate(0, 6, 0);
+
+  probeRedMesh = new THREE.Mesh(probeGeo, new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.3 }));
+  probeRedMesh.visible = false; boxGroup.add(probeRedMesh);
+
+  probeBlackMesh = new THREE.Mesh(probeGeo, new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 }));
+  probeBlackMesh.visible = false; boxGroup.add(probeBlackMesh);
+
   scene.add(boxGroup);
 }
 createTerminalBox();
 
-// --- 7. CÂBLAGE INDUSTRIEL (Mis à jour pour le coffret distant) ---
+// --- 7. CÂBLAGE INDUSTRIEL ---
 interface Wire3D { mesh: THREE.Mesh; material: THREE.MeshStandardMaterial; netName: string; activeColor: number; defaultColor: number; }
 const wires: Wire3D[] = [];
 
@@ -254,18 +274,12 @@ function buildIndustrialCable(points: THREE.Vector3[], defaultColor: number, act
   return { mesh, material, netName, activeColor, defaultColor };
 }
 
-// Câbles de puissance allongés
-wires.push(buildIndustrialCable([new THREE.Vector3(-135, 25, -55), new THREE.Vector3(-50, 10, -30), new THREE.Vector3(-8, 44, -9)], 0x5c3a21, 0xff5500, "L1_PHASE"));
-wires.push(buildIndustrialCable([new THREE.Vector3(-137, 25, -55), new THREE.Vector3(-45, 10, -30), new THREE.Vector3(0, 44, -9)], 0x111111, 0x00d2ff, "L2_PHASE"));
-wires.push(buildIndustrialCable([new THREE.Vector3(-139, 25, -55), new THREE.Vector3(-40, 10, -30), new THREE.Vector3(8, 44, -9)], 0x7f8c8d, 0xffff00, "L3_PHASE"));
-wires.push(buildIndustrialCable([new THREE.Vector3(-141, 25, -55), new THREE.Vector3(-35, 5, -35), new THREE.Vector3(0, 15, -25)], 0x27ae60, 0x2ecc71, "PE_GROUND", 1.8));
+wires.push(buildIndustrialCable([new THREE.Vector3(-10, 55, -65), new THREE.Vector3(-20, 45, -30), new THREE.Vector3(-8, 44, -9)], 0x5c3a21, 0xff5500, "L1_PHASE"));
+wires.push(buildIndustrialCable([new THREE.Vector3(-5, 55, -65), new THREE.Vector3(-10, 45, -30), new THREE.Vector3(0, 44, -9)], 0x111111, 0x00d2ff, "L2_PHASE"));
+wires.push(buildIndustrialCable([new THREE.Vector3(0, 55, -65), new THREE.Vector3(0, 45, -30), new THREE.Vector3(8, 44, -9)], 0x7f8c8d, 0xffff00, "L3_PHASE"));
+wires.push(buildIndustrialCable([new THREE.Vector3(5, 55, -65), new THREE.Vector3(15, 30, -35), new THREE.Vector3(0, 15, -25)], 0x27ae60, 0x2ecc71, "PE_GROUND", 1.8));
 
-// Câble de commande
-wires.push(buildIndustrialCable([
-  new THREE.Vector3(-135, 25, -55),
-  new THREE.Vector3(-20, 2, -10),
-  new THREE.Vector3(55, 10, 15)
-], 0x555555, 0x555555, "CONTROL", 2.2));
+wires.push(buildIndustrialCable([new THREE.Vector3(15, 55, -65), new THREE.Vector3(30, 20, -30), new THREE.Vector3(55, 10, 15)], 0x555555, 0x555555, "CONTROL", 2.2));
 
 // --- 8. CHARGEMENT MOTEUR 3D ---
 const loader = new GLTFLoader();
@@ -275,19 +289,71 @@ loader.load('/assets/MOTOR_STATOR.glb', (gltf) => motorGroup.add(gltf.scene));
 loader.load('/assets/MOTOR_ROTOR.glb', (gltf) => { rotorMesh = gltf.scene; motorGroup.add(rotorMesh); });
 
 // ==========================================
-// 3. LOGIQUE UI / MODE AUTO
+// 3. LOGIQUE UI / MODE AUTO & MULTIMÈTRE
 // ==========================================
 const statusText = document.getElementById('status')!;
 const btnCover = document.getElementById('btn-cover') as HTMLButtonElement;
 const btnStar = document.getElementById('btn-star') as HTMLButtonElement;
 const btnDelta = document.getElementById('btn-delta') as HTMLButtonElement;
-
 const btnModeDirect = document.getElementById('btn-mode-direct') as HTMLButtonElement;
 const btnModeSD = document.getElementById('btn-mode-sd') as HTMLButtonElement;
 
+// Bypass sécurité
+const chkBypass = document.getElementById('chk-bypass') as HTMLInputElement;
+if (chkBypass) {
+  chkBypass.addEventListener('change', (e) => {
+    isBypassActive = (e.target as HTMLInputElement).checked;
+    playClickSound();
+  });
+}
+
+// Logique Multimètre UI
+const displayMultimeter = document.getElementById('multimeter-display')!;
+const btnProbeRed = document.getElementById('btn-probe-red')!;
+const btnProbeBlack = document.getElementById('btn-probe-black')!;
+const instrProbe = document.getElementById('probe-instruction')!;
+
+if (btnProbeRed) btnProbeRed.addEventListener('click', () => { activeProbe = 'red'; playClickSound(); instrProbe.innerText = "🔴 Sonde Rouge active : Cliquez sur une borne"; });
+if (btnProbeBlack) btnProbeBlack.addEventListener('click', () => { activeProbe = 'black'; playClickSound(); instrProbe.innerText = "⚫ Sonde Noire active : Cliquez sur une borne"; });
+
+function updateMultimeter() {
+  if (!displayMultimeter) return;
+  if (!nodeRed || !nodeBlack) {
+    displayMultimeter.innerText = "--- V"; return;
+  }
+  if (nodeRed === nodeBlack) {
+    displayMultimeter.innerText = "0.00 V"; return;
+  }
+  
+  // On autorise TOUTES les bornes de la plaque (haut et bas)
+  const validNodes = ['U1', 'V1', 'W1', 'U2', 'V2', 'W2'];
+  
+  if (isKm1) {
+    const isPhaseRed = validNodes.includes(nodeRed);
+    const isPhaseBlack = validNodes.includes(nodeBlack);
+    
+    if (isPhaseRed && isPhaseBlack) {
+      // Effet Multimètre Réaliste : Fluctuation de la tension de +/- 1.5V
+      const fluctuation = (Math.random() * 3 - 1.5);
+      displayMultimeter.innerText = (400.0 + fluctuation).toFixed(1) + " V";
+      
+      // On met le texte en rouge fluo pour indiquer la présence de tension !
+      displayMultimeter.style.color = "#ff3333"; 
+      displayMultimeter.style.textShadow = "0 0 5px #ff0000";
+    } else {
+      displayMultimeter.innerText = "0.00 V";
+      displayMultimeter.style.color = "#111";
+      displayMultimeter.style.textShadow = "none";
+    }
+  } else {
+    displayMultimeter.innerText = "0.00 V";
+    displayMultimeter.style.color = "#111";
+    displayMultimeter.style.textShadow = "none";
+  }
+}
+
 function switchMode(newMode: string) {
-  playClickSound();
-  simMode = newMode;
+  playClickSound(); simMode = newMode;
   if (simMode === 'direct') {
     btnModeDirect.style.background = '#8e44ad'; btnModeSD.style.background = '#7f8c8d';
   } else {
@@ -307,12 +373,11 @@ function updateCouplingUI() {
   if (simMode === 'star_delta') {
     if (btnStar) { btnStar.disabled = true; btnStar.style.background = '#333'; btnStar.innerText = "AUTO (KM2)"; }
     if (btnDelta) { btnDelta.disabled = true; btnDelta.style.background = '#333'; btnDelta.innerText = "AUTO (KM3)"; }
-    starStrap.visible = false;
-    deltaStraps.visible = false;
+    starStrap.visible = false; deltaStraps.visible = false;
   } else {
     if (btnStar) btnStar.innerText = "ÉTOILE (Y)";
     if (btnDelta) btnDelta.innerText = "TRIANGLE (Δ)";
-    
+
     const canEdit = isCoverOpen && !isMotorRunning && !isKm1;
     if (canEdit) {
       if (btnStar) { btnStar.disabled = false; btnStar.style.background = currentCoupling === 'star' ? '#d35400' : '#2980b9'; }
@@ -344,7 +409,6 @@ ws.onmessage = (event) => {
   const state = JSON.parse(event.data);
   const wasRunning = isMotorRunning;
   const wasFaultActive = isFaultActive;
-  
   const wasKm1 = isKm1; const wasKm2 = isKm2; const wasKm3 = isKm3;
 
   isMotorRunning = state.motor_running;
@@ -353,42 +417,32 @@ ws.onmessage = (event) => {
   isKm2 = state.km2_energized;
   isKm3 = state.km3_energized;
 
-  updateCouplingUI(); 
+  updateCouplingUI();
+  updateMultimeter();
 
-  // Sons des Contacteurs
   if ((isKm1 && !wasKm1) || (isKm2 && !wasKm2) || (isKm3 && !wasKm3)) playContactorClack();
   if ((!isKm1 && wasKm1) || (!isKm2 && wasKm2) || (!isKm3 && wasKm3)) playContactorClack();
 
-  // Mise à jour visuelle des contacteurs
   if (km1LedMat) km1LedMat.emissive.setHex(isKm1 ? 0x00ff00 : 0x000000);
   if (km2LedMat) km2LedMat.emissive.setHex(isKm2 ? 0x00ff00 : 0x000000);
   if (km3LedMat) km3LedMat.emissive.setHex(isKm3 ? 0x00ff00 : 0x000000);
 
-  // LOGIQUE DE DÉMARRAGE MOTEUR (Vitesse et Son)
   if (isMotorRunning) {
     if (simMode === 'star_delta') {
-      if (isKm2) {
-        targetRotorSpeed = 0.15; // Étoile : Vitesse réduite
-        updateMotorPitch(true);
-      } else if (isKm3) {
-        targetRotorSpeed = 0.4;  // Triangle : Pleine vitesse
-        updateMotorPitch(false);
-      } else {
-        targetRotorSpeed = 0.1;  // Transition : Perte d'inertie
-      }
+      if (isKm2) { targetRotorSpeed = 0.15; updateMotorPitch(true); }
+      else if (isKm3) { targetRotorSpeed = 0.4; updateMotorPitch(false); }
+      else { targetRotorSpeed = 0.1; }
     } else {
-      targetRotorSpeed = 0.4; // Direct : Pleine vitesse
+      targetRotorSpeed = 0.4;
     }
   } else {
     targetRotorSpeed = 0;
   }
 
-  // Lancement / Arrêt du son du moteur
   if (isMotorRunning && !wasRunning) setMotorSound(true, simMode === 'star_delta' && isKm2);
   if (!isMotorRunning && wasRunning) setMotorSound(false);
-  
-  if (isFaultActive && !wasFaultActive) playFaultSound();
 
+  if (isFaultActive && !wasFaultActive) playFaultSound();
   if (panelLedOrangeMat) panelLedOrangeMat.emissive.setHex(isFaultActive ? 0xffaa00 : 0x000000);
 
   if (isFaultActive) {
@@ -418,7 +472,7 @@ let activePressedMesh: THREE.Mesh | null = null;
 function sendAction(id: string, type: string, action: string) {
   if (action === 'press') playClickSound();
 
-  if (id === 'btn_start' && action === 'press' && isCoverOpen) {
+  if (id === 'btn_start' && action === 'press' && isCoverOpen && !isBypassActive) {
     statusText.innerText = "🔒 SÉCURITÉ : COUVERCLE OUVERT !"; statusText.style.color = "#e74c3c";
     playFaultSound();
     setTimeout(() => {
@@ -435,7 +489,7 @@ function sendAction(id: string, type: string, action: string) {
 function toggleCover() {
   playClickSound();
   if (!isCoverOpen) {
-    if (isMotorRunning) {
+    if (isMotorRunning && !isBypassActive) {
       sendAction('btn_stop', 'pulse', 'press');
       setTimeout(() => sendAction('btn_stop', 'pulse', 'release'), 100);
     }
@@ -446,21 +500,58 @@ function toggleCover() {
 
 if (btnCover) btnCover.addEventListener('click', () => toggleCover());
 
-window.addEventListener('pointerdown', (event) => {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 - 0.05;
+window.addEventListener('pointermove', (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(interactiveButtons);
+  document.body.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
+});
+
+window.addEventListener('pointerdown', (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(interactiveButtons);
+
   if (intersects.length > 0) {
     const mesh = intersects[0].object as THREE.Mesh;
-    if (mesh.userData.type === 'cover') toggleCover();
-    else {
+
+    if (mesh.userData.type === 'terminal') {
+      if (activeProbe === 'red') {
+        probeRedMesh.position.copy(mesh.position);
+        probeRedMesh.position.y += 3;
+        probeRedMesh.visible = true;
+        nodeRed = mesh.userData.net;
+        activeProbe = null;
+        if (instrProbe) instrProbe.innerText = "Sonde Rouge placée.";
+        playClickSound();
+      } else if (activeProbe === 'black') {
+        probeBlackMesh.position.copy(mesh.position);
+        probeBlackMesh.position.y += 3;
+        probeBlackMesh.visible = true;
+        nodeBlack = mesh.userData.net;
+        activeProbe = null;
+        if (instrProbe) instrProbe.innerText = "Sonde Noire placée.";
+        playClickSound();
+      }
+      updateMultimeter();
+      return;
+    }
+
+    if (mesh.userData.type === 'cover') {
+      toggleCover();
+    } else {
       activePressedMesh = mesh; mesh.position.y = mesh.userData.initialY - 3;
       sendAction(mesh.userData.id, mesh.userData.type, 'press');
     }
   }
 });
+
 window.addEventListener('pointerup', () => {
-  if (activePressedMesh && activePressedMesh.userData.type !== 'cover') {
+  if (activePressedMesh && activePressedMesh.userData.type !== 'cover' && activePressedMesh.userData.type !== 'terminal') {
     activePressedMesh.position.y = activePressedMesh.userData.initialY;
     sendAction(activePressedMesh.userData.id, activePressedMesh.userData.type, 'release');
     activePressedMesh = null;
@@ -486,14 +577,13 @@ if (btnResetHTML) {
   btnResetHTML.addEventListener('mouseup', turnOffBlue); btnResetHTML.addEventListener('mouseleave', turnOffBlue);
 }
 
-// --- 6. ANIMATION (Inertie du rotor) ---
+// --- 6. ANIMATION ---
 function animate() {
   requestAnimationFrame(animate); controls.update();
-  
-  const targetRotX = isCoverOpen ? -Math.PI / 1.7 : 0; 
+
+  const targetRotX = isCoverOpen ? -Math.PI / 1.7 : 0;
   coverGroup.rotation.x += (targetRotX - coverGroup.rotation.x) * 0.15;
 
-  // Calcul de l'inertie du rotor (Accélération / Décélération fluide)
   currentRotorSpeed += (targetRotorSpeed - currentRotorSpeed) * 0.03;
   if (rotorMesh) {
     rotorMesh.rotation.x += currentRotorSpeed;

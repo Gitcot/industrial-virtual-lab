@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.simulation.solver import SimulationSolver
-from app.simulation.components import PowerSource, PushButton, Contactor, Motor
+from app.simulation.components import PowerSource, PushButton, Contactor, Motor, ThermalRelay
 from app.simulation.core import ElectricalNet
 
 app = FastAPI(title="Industrial Virtual Lab API")
@@ -24,34 +24,39 @@ def build_circuit() -> tuple[SimulationSolver, dict]:
 
     components = {
         "power": PowerSource("Alim_24V"),
+        "thermal_f1": ThermalRelay("F1_THERMAL"),
         "btn_stop": PushButton("S1_STOP", normally_closed=True),
         "btn_start": PushButton("S2_START", normally_closed=False),
         "km1": Contactor("KM1"),
         "motor": Motor("M1_Moteur")
     }
 
-    # 1. Création EXPLICITE de tous les câbles (Nets)
     net_24v = ElectricalNet("24V")
+    net_after_f1 = ElectricalNet("AFTER_F1")
     net_mid = ElectricalNet("MID")
     net_coil = ElectricalNet("COIL")
-    net_t1 = ElectricalNet("T1")
-    net_t2 = ElectricalNet("T2")
-    net_t3 = ElectricalNet("T3")
+    net_t1, net_t2, net_t3 = ElectricalNet(
+        "T1"), ElectricalNet("T2"), ElectricalNet("T3")
 
-    # Commande
+    # 1. Alimentation -> Relais Thermique F1 (NC 95-96)
     components["power"].connect("OUT", net_24v)
-    components["btn_stop"].connect("IN", net_24v)
+    components["thermal_f1"].connect("95", net_24v)
+    components["thermal_f1"].connect("96", net_after_f1)
+
+    # 2. F1 -> Bouton STOP (NC 11-12)
+    components["btn_stop"].connect("IN", net_after_f1)
     components["btn_stop"].connect("OUT", net_mid)
 
+    # 3. STOP -> Bouton START (NO 13-14) & Bobine KM1 (A1)
     components["btn_start"].connect("IN", net_mid)
     components["btn_start"].connect("OUT", net_coil)
     components["km1"].connect("A1", net_coil)
 
-    # Auto-maintien
+    # 4. Auto-maintien Contact Auxiliaire KM1 (13-14)
     components["km1"].connect("13", net_mid)
     components["km1"].connect("14", net_coil)
 
-    # Puissance
+    # 5. Circuit de Puissance
     components["km1"].connect("L1", net_24v)
     components["km1"].connect("L2", net_24v)
     components["km1"].connect("L3", net_24v)
@@ -63,11 +68,10 @@ def build_circuit() -> tuple[SimulationSolver, dict]:
     components["motor"].connect("L2", net_t2)
     components["motor"].connect("L3", net_t3)
 
-    # 2. Ajout de TOUS les composants et TOUS les câbles au Solveur
     for comp in components.values():
         solver.add_component(comp)
 
-    for net in [net_24v, net_mid, net_coil, net_t1, net_t2, net_t3]:
+    for net in [net_24v, net_after_f1, net_mid, net_coil, net_t1, net_t2, net_t3]:
         solver.add_net(net)
 
     return solver, components
@@ -76,30 +80,40 @@ def build_circuit() -> tuple[SimulationSolver, dict]:
 @app.websocket("/ws/simulation")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("[+] Nouveau client connecté au laboratoire 3D")
+    print("[+] Client connecté au laboratoire 3D")
 
     solver, components = build_circuit()
 
-    # Tâche de fond : Le Solveur tourne en continu (20 ticks/seconde)
     async def simulation_loop():
         try:
             while True:
-                solver.tick()
+                # 1. Remise à zéro des câbles
+                for net in solver.nets:
+                    net.reset()
+
+                # 2. Resolution multi-passes
+                for _ in range(3):
+                    for comp in solver.components:
+                        comp.evaluate()
+
+                # 3. Mise à jour physique
+                for comp in solver.components:
+                    comp.update_state()
+
                 state = {
                     "km1_energized": components["km1"].is_energized,
-                    "motor_running": components["motor"].is_running
+                    "motor_running": components["motor"].is_running,
+                    "fault_active": components["thermal_f1"].is_tripped
                 }
                 await websocket.send_text(json.dumps(state))
-                await asyncio.sleep(0.05)  # 50ms par tick
+                await asyncio.sleep(0.05)
         except Exception:
             pass
 
-    # Lancement de la boucle de simulation en arrière-plan
     loop_task = asyncio.create_task(simulation_loop())
 
     try:
         while True:
-            # Écoute asynchrone des actions de l'utilisateur (souris sur les boutons)
             data = await websocket.receive_text()
             payload = json.loads(data)
 
@@ -111,6 +125,12 @@ async def websocket_endpoint(websocket: WebSocket):
                     components[target].press()
                 elif action == "release":
                     components[target].release()
+
+            elif target == "thermal_f1":
+                if action == "trip":
+                    components["thermal_f1"].trip()
+                elif action == "reset":
+                    components["thermal_f1"].reset()
 
     except WebSocketDisconnect:
         print("[-] Client déconnecté")

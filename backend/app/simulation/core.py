@@ -1,40 +1,47 @@
 # backend/app/simulation/core.py
-from typing import Dict, List
-
 
 class ElectricalNet:
-    """
-    Représente un fil électrique ou un potentiel commun.
-    L'énergie se propage dans ce 'Net'. Si un Net est alimenté, 
-    tous les composants connectés à ce Net reçoivent l'énergie.
-    """
+    """Représente un câble ou un potentiel électrique reliant plusieurs bornes."""
 
     def __init__(self, name: str):
         self.name = name
-        self.is_powered: bool = False
+        self.is_powered = False
 
     def reset(self):
-        """Réinitialise l'état avant chaque tick de calcul."""
         self.is_powered = False
 
 
-class Component:
-    """
-    Classe de base pour tous les équipements industriels.
-    """
+class Terminal:
+    """Représente une borne de connexion d'un composant."""
+
+    def __init__(self, name: str, component):
+        self.name = name
+        self.component = component
+        self.net = None
+
+
+class ElectricalComponent:
+    """Classe de base abstraite pour tous les composants du laboratoire."""
 
     def __init__(self, name: str):
         self.name = name
-        # Dictionnaire des connexions physiques (ex: "L1" -> Net_A)
-        self.terminals: Dict[str, ElectricalNet] = {}
+        self.terminals: dict[str, Terminal] = {}
 
-    def connect(self, terminal_name: str, net: ElectricalNet):
-        """Connecte une borne du composant à un fil (Net)."""
-        self.terminals[terminal_name] = net
+    def connect(self, terminal_name: str, net_or_terminal):
+        if isinstance(net_or_terminal, ElectricalNet):
+            term = Terminal(terminal_name, self)
+            term.net = net_or_terminal
+            self.terminals[terminal_name] = term
+        elif isinstance(net_or_terminal, Terminal):
+            self.terminals[terminal_name] = net_or_terminal
 
-    def update(self):
-        """
-        Logique métier du composant. 
-        Surchargeable par les classes enfants (ex: si Bobine A1-A2 alimentée -> fermer contacts).
-        """
+    def evaluate(self):
+        """Évaluation logique de la propagation du courant."""
         pass
+
+    def update_state(self):
+        """Mise à jour des états physiques internes (bobines, relais, etc.)."""
+        pass
+
+    # Alias pour assurer la compatibilité avec solver.py
+Component = ElectricalComponent

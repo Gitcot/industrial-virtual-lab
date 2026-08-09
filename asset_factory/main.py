@@ -29,8 +29,10 @@ def process_catalog():
             "cad": AssetGenerator.generate_circuit_breaker()},
         {"id": "RELAY", "type": "THERMAL_RELAY", "name": "Relais Thermique",
             "cad": AssetGenerator.generate_thermal_relay()},
-        {"id": "MOTOR", "type": "MOTOR_AC", "name": "Moteur Asynchrone Triphasé",
-            "cad": AssetGenerator.generate_motor()},
+        {"id": "MOTOR_STATOR", "type": "MOTOR_PART", "name": "Stator Moteur",
+            "cad": AssetGenerator.generate_motor_stator()},
+        {"id": "MOTOR_ROTOR", "type": "MOTOR_PART", "name": "Rotor Moteur",
+            "cad": AssetGenerator.generate_motor_rotor()},
     ]
 
     converter = StepToGlbConverter(linear_deflection=0.5)

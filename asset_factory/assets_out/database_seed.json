@@ -48,15 +48,27 @@
         ]
     },
     {
-        "asset_id": "MOTOR",
-        "name": "Moteur Asynchrone Triphasé",
-        "type": "MOTOR_AC",
-        "glb_path": "/assets/MOTOR.glb",
-        "polycount": 1080,
+        "asset_id": "MOTOR_STATOR",
+        "name": "Stator Moteur",
+        "type": "MOTOR_PART",
+        "glb_path": "/assets/MOTOR_STATOR.glb",
+        "polycount": 576,
         "dimensions": [
-            135.0,
+            120.0,
             80.0,
             89.98756790161133
+        ]
+    },
+    {
+        "asset_id": "MOTOR_ROTOR",
+        "name": "Rotor Moteur",
+        "type": "MOTOR_PART",
+        "glb_path": "/assets/MOTOR_ROTOR.glb",
+        "polycount": 516,
+        "dimensions": [
+            35.0,
+            16.0,
+            15.995026588439941
         ]
     }
 ]

@@ -40,13 +40,17 @@ class AssetGenerator:
         return body.union(pins)
 
     @staticmethod
-    def generate_motor() -> cq.Workplane:
-        """Génère un Moteur Asynchrone standard."""
-        # Corps cylindrique principal
+    def generate_motor_stator() -> cq.Workplane:
+        """Partie fixe du moteur : corps cylindrique + boîte à bornes."""
         body = cq.Workplane("YZ").cylinder(height=120, radius=40)
-        # Arbre du moteur (Rotor)
-        shaft = cq.Workplane("YZ").workplane(
-            offset=60).cylinder(height=30, radius=8)
-        # Boîte à bornes sur le dessus
         terminal_box = cq.Workplane("XY").workplane(offset=40).box(30, 30, 20)
-        return body.union(shaft).union(terminal_box)
+        return body.union(terminal_box)
+
+    @staticmethod
+    def generate_motor_rotor() -> cq.Workplane:
+        """Partie mobile : arbre de transmission."""
+        # On ajoute une petite méplat ou rainure pour mieux visualiser la rotation
+        shaft = cq.Workplane("YZ").workplane(
+            offset=60).cylinder(height=35, radius=8)
+        notch = cq.Workplane("YZ").workplane(offset=70).box(10, 4, 18)
+        return shaft.cut(notch)

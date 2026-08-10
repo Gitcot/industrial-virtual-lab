@@ -1,142 +1,220 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Industrial Virtual Lab - 3D Simulation</title>
   <style>
-    /* Reset CSS de base */
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      /* Empêche les barres de défilement */
-      background-color: #1a1d24;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    body { margin: 0; padding: 0; overflow: hidden; background-color: #1a1d24; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    #app { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+    
+    button { transition: filter 0.2s ease, transform 0.1s ease; }
+    button:hover:not([disabled]) { filter: brightness(1.2); }
+    button:active:not([disabled]) { transform: scale(0.95); }
+    
+    /* Layout Adaptatif pour les panneaux latéraux */
+    .side-panel {
+      position: absolute; top: 10px; bottom: 10px; width: 350px; padding: 10px; box-sizing: border-box;
+      display: flex; flex-direction: column; gap: 10px; overflow-y: auto; pointer-events: none; z-index: 100;
     }
-
-    /* Conteneur du Canvas 3D (Three.js) */
-    #app {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 1;
+    
+    /* Barre de défilement discrète */
+    .side-panel::-webkit-scrollbar { width: 6px; }
+    .side-panel::-webkit-scrollbar-thumb { background: rgba(127, 140, 141, 0.5); border-radius: 3px; }
+    .side-panel::-webkit-scrollbar-thumb:hover { background: rgba(127, 140, 141, 0.8); }
+    
+    .ui-box { pointer-events: auto; background: rgba(26, 29, 36, 0.95); padding: 12px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+    
+    /* NOUVEAU : En-têtes repliables (Accordion) */
+    .box-header {
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer; user-select: none;
     }
-
-    /* Effets de survol et de clic sur les boutons HTML */
-    button {
-      transition: filter 0.2s ease, transform 0.1s ease;
+    .box-header h3 { margin: 0; font-size: 1rem; }
+    .box-header .toggle-icon {
+      font-size: 0.7rem; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; transition: background 0.2s;
     }
+    .box-header:hover .toggle-icon { background: rgba(255,255,255,0.3); }
+    
+    /* Contenu du panneau */
+    .box-content { margin-top: 10px; }
+    .box-content.collapsed { display: none; }
 
-    button:hover:not([disabled]) {
-      filter: brightness(1.2);
-    }
-
-    button:active:not([disabled]) {
-      transform: scale(0.95);
+    /* TOOLTIP DYNAMIQUE (Étiquettes au survol) */
+    #tooltip {
+      position: absolute; display: none; background: rgba(0,0,0,0.85); color: #f1c40f; padding: 6px 12px;
+      border-radius: 4px; font-size: 12px; font-weight: bold; pointer-events: none; z-index: 1000; border: 1px solid #f39c12;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.5); white-space: nowrap;
     }
   </style>
 </head>
-
 <body>
-
-  <!-- Conteneur pour le moteur 3D (Three.js) -->
+  
   <div id="app"></div>
+  <div id="tooltip">Label</div>
 
-  <!-- Interface utilisateur superposée (Placée en bas à gauche) -->
-  <div id="ui-layer"
-    style="position: absolute; bottom: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 100; max-width: 350px; max-height: 95vh; overflow-y: auto;">
-
-    <!-- En-tête et Statut -->
-    <div
-      style="background: rgba(26, 29, 36, 0.9); padding: 15px; border-radius: 8px; color: white; border-left: 4px solid #3498db; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+  <!-- COLONNE GAUCHE : COMMANDES -->
+  <div class="side-panel" style="left: 0;">
+    
+    <!-- En-tête (Non repliable) -->
+    <div class="ui-box" style="border-left: 4px solid #3498db; color: white;">
       <h2 style="margin: 0 0 5px 0; font-size: 1.2rem;">🏭 Jumeau Numérique 3D</h2>
       <p id="status" style="margin: 0; font-weight: bold; color: #f1c40f;">Connexion au serveur...</p>
     </div>
 
-    <!-- MULTIMÈTRE NUMÉRIQUE -->
-    <div
-      style="background: #2c3e50; padding: 15px; border-radius: 8px; border-top: 4px solid #e74c3c; border-bottom: 4px solid #34495e; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center;">
-      <h3 style="margin: 0 0 10px 0; color: #ecf0f1; font-size: 1rem;">Multimètre</h3>
-      <div
-        style="background: #a8cf45; padding: 10px; border-radius: 4px; border: inset 3px #7b9933; margin-bottom: 10px;">
-        <span id="multimeter-display"
-          style="font-family: 'Courier New', monospace; font-size: 1.5rem; font-weight: bold; color: #111;">--- V</span>
-      </div>
-      <div style="display: flex; gap: 8px;">
-        <button id="btn-probe-red"
-          style="flex: 1; background: #c0392b; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">SONDE
-          ROUGE</button>
-        <button id="btn-probe-black"
-          style="flex: 1; background: #111; border: 1px solid #7f8c8d; color: white; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer;">SONDE
-          NOIRE</button>
-      </div>
-      <p id="probe-instruction" style="margin: 8px 0 0 0; font-size: 0.8rem; color: #bdc3c7;">Cliquez sur une sonde puis
-        sur une borne 3D.</p>
-    </div>
-
     <!-- Mode de Démarrage -->
-    <div
-      style="background: rgba(26, 29, 36, 0.9); padding: 15px; border-radius: 8px; border-left: 4px solid #9b59b6; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-      <h3 style="margin: 0 0 10px 0; color: #9b59b6; font-size: 1rem;">Mode de Démarrage</h3>
-      <div style="display: flex; gap: 8px;">
-        <button id="btn-mode-direct"
-          style="flex: 1; background: #8e44ad; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">DIRECT</button>
-        <button id="btn-mode-sd"
-          style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">AUTO
-          Y/Δ</button>
+    <div class="ui-box" style="border-left: 4px solid #9b59b6;">
+      <div class="box-header" style="color: #9b59b6;">
+        <h3>Mode de Démarrage</h3>
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="box-content">
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-mode-direct" style="flex: 1; background: #8e44ad; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">DIRECT</button>
+          <button id="btn-mode-sd" style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">AUTO Y/Δ</button>
+        </div>
       </div>
     </div>
 
-    <!-- Boîte à bornes Moteur -->
-    <div
-      style="background: rgba(26, 29, 36, 0.9); padding: 15px; border-radius: 8px; border-left: 4px solid #f39c12; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-      <h3 style="margin: 0 0 10px 0; color: #f39c12; font-size: 1rem;">Couplage Manuel</h3>
-      <button id="btn-cover"
-        style="background: #34495e; color: white; padding: 8px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 8px; width: 100%;">OUVRIR
-        COUVERCLE</button>
-      <div style="display: flex; gap: 8px;">
-        <button id="btn-star" disabled
-          style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed;">ÉTOILE
-          (Y)</button>
-        <button id="btn-delta" disabled
-          style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed;">TRIANGLE
-          (Δ)</button>
+    <!-- Couplage Manuel -->
+    <div class="ui-box" style="border-left: 4px solid #f39c12;">
+      <div class="box-header" style="color: #f39c12;">
+        <h3>Couplage Manuel</h3>
+        <span class="toggle-icon">▼</span>
       </div>
-      <!-- CLÉ DE MAINTENANCE -->
-      <div
-        style="margin-top: 12px; display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px; border: 1px solid #e74c3c;">
-        <input type="checkbox" id="chk-bypass" style="cursor: pointer; width: 16px; height: 16px;" />
-        <label for="chk-bypass" style="color: #e74c3c; font-size: 0.8rem; font-weight: bold; cursor: pointer;">BYPASS
-          SÉCURITÉ (MESURES)</label>
+      <div class="box-content">
+        <button id="btn-cover" style="background: #34495e; color: white; padding: 8px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 8px; width: 100%;">OUVRIR COUVERCLE</button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-star" disabled style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed;">ÉTOILE (Y)</button>
+          <button id="btn-delta" disabled style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed;">TRIANGLE (Δ)</button>
+        </div>
       </div>
     </div>
 
-    <!-- Pupitre de commande -->
-    <div
-      style="background: rgba(26, 29, 36, 0.9); padding: 15px; border-radius: 8px; border-left: 4px solid #2ecc71; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-      <h3 style="margin: 0 0 10px 0; color: #2ecc71; font-size: 1rem;">Pupitre de Commande</h3>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-        <button id="btn-start"
-          style="background: #27ae60; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">START
-          (NO)</button>
-        <button id="btn-stop"
-          style="background: #c0392b; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">STOP
-          (NC)</button>
-        <button id="btn-trip"
-          style="background: #e67e22; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">DÉFAUT</button>
-        <button id="btn-reset"
-          style="background: #2980b9; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">RÉARMER</button>
+    <!-- Pupitre de Commande -->
+    <div class="ui-box" style="border-left: 4px solid #2ecc71;">
+      <div class="box-header" style="color: #2ecc71;">
+        <h3>Pupitre de Commande</h3>
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="box-content">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button id="btn-start" style="background: #27ae60; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">START (NO)</button>
+          <button id="btn-stop" style="background: #c0392b; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">STOP (NC)</button>
+          <button id="btn-trip" style="background: #e67e22; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">DÉFAUT</button>
+          <button id="btn-reset" style="background: #2980b9; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">RÉARMER</button>
+        </div>
       </div>
     </div>
-
   </div>
 
-  <!-- Script principal Vite/Three.js -->
+  <!-- COLONNE DROITE : DIAGNOSTIC & INTERVENTION -->
+  <div class="side-panel" style="right: 0;">
+    
+    <!-- MULTIMÈTRE NUMÉRIQUE -->
+    <div class="ui-box" style="border-left: 4px solid #e74c3c; text-align: center;">
+      <div class="box-header" style="color: #ecf0f1;">
+        <h3>Multimètre Numérique</h3>
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="box-content">
+        <div style="display: flex; gap: 4px; margin-bottom: 10px;">
+          <button id="btn-mm-v" style="flex: 1; background: #e74c3c; color: white; border: none; padding: 6px; border-radius: 3px; font-weight: bold; cursor: pointer;">V</button>
+          <button id="btn-mm-ohm" style="flex: 1; background: #7f8c8d; color: white; border: none; padding: 6px; border-radius: 3px; font-weight: bold; cursor: pointer;">Ω</button>
+          <button id="btn-mm-mega" style="flex: 1; background: #7f8c8d; color: white; border: none; padding: 6px; border-radius: 3px; font-weight: bold; cursor: pointer;">MΩ</button>
+        </div>
+        
+        <div id="mega-voltage-container" style="display: none; margin-bottom: 10px; background: rgba(0,0,0,0.4); padding: 5px; border-radius: 4px;">
+          <label style="color: #bdc3c7; font-size: 0.8rem; margin-right: 5px;">Tension d'injection (VDC) :</label>
+          <select id="sel-mega-voltage" style="background: #34495e; color: white; border: 1px solid #7f8c8d; border-radius: 3px; padding: 2px;">
+            <option value="50">50 V</option>
+            <option value="100">100 V</option>
+            <option value="250">250 V</option>
+            <option value="500" selected>500 V</option>
+          </select>
+        </div>
+
+        <div style="background: #a8cf45; padding: 10px; border-radius: 4px; border: inset 3px #7b9933; margin-bottom: 10px; position: relative;">
+          <span id="mm-unit" style="position: absolute; top: 4px; left: 6px; font-size: 0.7rem; font-weight: bold; color: #111;">AC V</span>
+          <span id="multimeter-display" style="font-family: 'Courier New', monospace; font-size: 1.5rem; font-weight: bold; color: #111;">---</span>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <button id="btn-probe-red" style="flex: 1; background: #c0392b; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">🔴 SONDE</button>
+          <button id="btn-probe-black" style="flex: 1; background: #111; border: 1px solid #7f8c8d; color: white; padding: 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">⚫ SONDE</button>
+        </div>
+        <button id="btn-remove-probes" style="width: 100%; background: #95a5a6; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; margin-bottom: 8px;">⏏️ RETIRER LES SONDES</button>
+
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px; border: 1px solid #e74c3c;">
+          <input type="checkbox" id="chk-bypass" style="cursor: pointer; width: 16px; height: 16px;" />
+          <label for="chk-bypass" style="color: #e74c3c; font-size: 0.8rem; font-weight: bold; cursor: pointer;">BYPASS SÉCURITÉ</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE DÉPANNAGE -->
+    <div class="ui-box" style="border-left: 4px solid #f1c40f;">
+      <div class="box-header" style="color: #f1c40f;">
+        <h3>🛠️ Mode Dépannage</h3>
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="box-content">
+        <button id="btn-fault" style="width: 100%; background: #c0392b; color: white; border: 1px solid white; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">INJECTER PANNE (Aléatoire)</button>
+        
+        <div id="fault-clue-box" style="display: none; background: #8e44ad; padding: 10px; border-radius: 4px; border: 1px solid #fff; margin-bottom: 8px;">
+          <strong style="color: #fff; font-size: 0.9rem;">🔎 Indice :</strong>
+          <p id="fault-clue-text" style="margin: 5px 0 0 0; color: #ecf0f1; font-size: 0.85rem; line-height: 1.3;">...</p>
+        </div>
+
+        <button id="btn-guide" style="width: 100%; background: #34495e; color: white; border: none; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer;">❓ GUIDE DE MESURE</button>
+        <div id="guide-panel" style="display: none; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 4px; color: #ecf0f1; font-size: 0.85rem; line-height: 1.4;">
+          <strong>Ohmmètre (Mesure de bobine) :</strong><br>
+          Placez les sondes sur A1 et A2 du contacteur (HORS TENSION) :<br>
+          ➔ ~320 Ω = Bobine OK<br>
+          ➔ O.L = Bobine grillée/coupée<br><br>
+          <strong>Mégohmmètre (Isolement Moteur) :</strong><br>
+          Sonde rouge sur U1, noire sur PE (Terre). Injectez 500VDC :<br>
+          ➔ > 500 MΩ = Isolement OK.
+        </div>
+      </div>
+    </div>
+
+    <!-- MAGASIN / REMPLACEMENT (Replié par défaut) -->
+    <div class="ui-box" style="border-left: 4px solid #34495e;">
+      <div class="box-header" style="color: white;">
+        <h3>📦 Magasin (Rechange)</h3>
+        <span class="toggle-icon">▶</span>
+      </div>
+      <div class="box-content collapsed">
+        <p style="font-size: 0.8rem; color: #bdc3c7; margin: 0 0 10px 0;">Consigne : Coupez l'alimentation (STOP) avant intervention.</p>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <button id="btn-rep-km1" style="background: #2980b9; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remplacer KM1</button>
+          <button id="btn-rep-km2" style="background: #2980b9; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remplacer KM2</button>
+          <button id="btn-rep-km3" style="background: #2980b9; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remplacer KM3</button>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+
+  <!-- Script d'interface (Accordion JS pur) -->
+  <script>
+    document.querySelectorAll('.box-header').forEach(header => {
+      header.addEventListener('click', () => {
+        const content = header.nextElementSibling;
+        const icon = header.querySelector('.toggle-icon');
+        if (content.classList.contains('collapsed')) {
+          content.classList.remove('collapsed');
+          if(icon) icon.innerText = '▼';
+        } else {
+          content.classList.add('collapsed');
+          if(icon) icon.innerText = '▶';
+        }
+      });
+    });
+  </script>
+
+  <!-- Script Principal Three.js -->
   <script type="module" src="/src/main.ts"></script>
 </body>
-
 </html>

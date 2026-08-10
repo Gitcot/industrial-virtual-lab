@@ -41,9 +41,9 @@ class Contactor(ElectricalComponent):
             "21": None, "22": None
         }
         self.is_energized = False
+        self.is_broken = False  # <-- ÉTAT DE SANTÉ DE LA BOBINE
 
     def evaluate(self):
-        # L'évaluation se base sur l'état mécanique consolidé
         if self.is_energized:
             for p_in, p_out in [("L1", "T1"), ("L2", "T2"), ("L3", "T3"), ("13", "14")]:
                 n_in = self.terminals.get(p_in)
@@ -52,7 +52,6 @@ class Contactor(ElectricalComponent):
                     if n_in.net.is_powered: n_out.net.is_powered = True
                     if n_out.net.is_powered: n_in.net.is_powered = True
         else:
-            # Contact de verrouillage NC (21-22) conduit si NON excité
             n_21 = self.terminals.get("21")
             n_22 = self.terminals.get("22")
             if n_21 and n_22 and n_21.net and n_22.net:
@@ -60,9 +59,12 @@ class Contactor(ElectricalComponent):
                 if n_22.net.is_powered: n_21.net.is_powered = True
 
     def update_state(self):
-        # L'état mécanique (is_energized) est validé à la toute fin du cycle
         net_a1 = self.terminals["A1"].net
-        self.is_energized = bool(net_a1 and net_a1.is_powered)
+        # Si la bobine est cassée, le contacteur ne s'enclenche jamais
+        if self.is_broken:
+            self.is_energized = False
+        else:
+            self.is_energized = bool(net_a1 and net_a1.is_powered)
 
 class TimerRelay(ElectricalComponent):
     def __init__(self, name: str, delay: float = 3.0):
@@ -90,13 +92,11 @@ class TimerRelay(ElectricalComponent):
         net_a1 = self.terminals["A1"].net
         is_powered_now = bool(net_a1 and net_a1.is_powered)
         
-        # Front montant : on démarre le chrono
         if is_powered_now and not self.is_powered:
             self.start_time = time.time()
             
         self.is_powered = is_powered_now
         
-        # Bascule des contacts si le temps est écoulé
         if self.is_powered and (time.time() - self.start_time >= self.delay):
             self.is_triggered = True
         else:

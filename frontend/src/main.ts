@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import Chart from 'chart.js/auto';
 
 // ==========================================
-// 🎵 MOTEUR AUDIO DYNAMIQUE (Calage et Rotation)
+// 🎵 MOTEUR AUDIO DYNAMIQUE (Restauré et Sécurisé)
 // ==========================================
 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
 let motorOsc: OscillatorNode | null = null;
@@ -18,51 +18,61 @@ function initAudio() {
 
 function playClickSound() {
   if (!isAudioEnabled) return;
-  const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-  gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-  osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+  try {
+    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+  } catch (e) { }
 }
 
 function playContactorClack() {
   if (!isAudioEnabled) return;
-  const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  osc.type = 'square'; osc.frequency.setValueAtTime(100, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
-  gain.gain.setValueAtTime(0.8, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-  osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+  try {
+    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'square'; osc.frequency.setValueAtTime(100, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.8, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+  } catch (e) { }
 }
 
 function playFaultSound() {
   if (!isAudioEnabled) return;
-  const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  osc.type = 'square'; osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-  gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-  osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+  try {
+    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'square'; osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+  } catch (e) { }
 }
 
-function updateMotorAudio(rpm: number, isPowered: boolean) {
+function setMotorSound(running: boolean, coupling: string) {
   if (!isAudioEnabled) return;
-  if (isPowered) {
-    if (!motorOsc) {
+  try {
+    if (running && !motorOsc) {
       motorOsc = audioCtx.createOscillator(); motorGain = audioCtx.createGain();
       motorOsc.connect(motorGain); motorGain.connect(audioCtx.destination);
       motorOsc.type = 'triangle';
-      motorOsc.frequency.setValueAtTime(10, audioCtx.currentTime);
-      motorGain.gain.setValueAtTime(0, audioCtx.currentTime);
-      motorGain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.2); // Son puissant (grogne si bloqué)
+      const freq = (coupling === 'star') ? 35 : 50;
+      motorOsc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      motorGain.gain.setValueAtTime(0, audioCtx.currentTime); motorGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.5);
       motorOsc.start();
+    } else if (!running && motorOsc && motorGain) {
+      motorGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+      motorOsc.stop(audioCtx.currentTime + 0.5); motorOsc = null; motorGain = null;
     }
-    const freq = Math.max(10, (rpm / 1500) * 50); 
-    motorOsc.frequency.linearRampToValueAtTime(freq, audioCtx.currentTime + 0.1);
-  } else {
-    if (motorOsc && motorGain) {
-      motorGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
-      motorOsc.stop(audioCtx.currentTime + 0.2); motorOsc = null; motorGain = null;
-    }
-  }
+  } catch (e) { }
+}
+
+function updateMotorPitch(coupling: string) {
+  if (!isAudioEnabled || !motorOsc) return;
+  try {
+    const targetFreq = (coupling === 'star') ? 35 : 50;
+    motorOsc.frequency.linearRampToValueAtTime(targetFreq, audioCtx.currentTime + 0.2);
+  } catch (e) { }
 }
 
 window.addEventListener('pointerdown', initAudio, { once: true });
@@ -88,14 +98,14 @@ const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.5); dirLight1.position.
 // ==========================================
 // 2. ÉTATS GLOBAUX & MATÉRIAUX
 // ==========================================
-let simMode = 'direct'; 
-let isCoverOpen = false; let isBypassActive = false; 
+let simMode = 'direct';
+let isCoverOpen = false; let isBypassActive = false;
 let currentCoupling = 'star';
 let activeCouplingStr = 'none';
 let isMotorPowered = false, isFaultActive = false;
 let isKm1 = false, isKm2 = false, isKm3 = false;
 let stateKm1Broken = false, stateKm2Broken = false, stateKm3Broken = false;
-let realRpm = 0; 
+let realRpm = 0;
 
 let mmMode: 'V' | 'OHM' | 'MEGA' = 'V';
 let probeRedMesh: THREE.Mesh; let probeBlackMesh: THREE.Mesh;
@@ -106,11 +116,11 @@ let panelLedOrangeMat: THREE.MeshStandardMaterial, panelLedBlueMat: THREE.MeshSt
 let km1LedMat: THREE.MeshStandardMaterial | null = null; let km2LedMat: THREE.MeshStandardMaterial | null = null; let km3LedMat: THREE.MeshStandardMaterial | null = null;
 
 let coverGroup: THREE.Group, starStrap: THREE.Mesh, deltaStraps: THREE.Group;
-const interactiveButtons: THREE.Mesh[] = []; const hoverableObjects: THREE.Object3D[] = []; 
+const interactiveButtons: THREE.Mesh[] = []; const hoverableObjects: THREE.Object3D[] = [];
 
 const cabinetGroup = new THREE.Group(); cabinetGroup.position.set(0, 65, -70); scene.add(cabinetGroup);
 function buildCabinet(mode: string) {
-  while(cabinetGroup.children.length > 0) cabinetGroup.remove(cabinetGroup.children[0]);
+  while (cabinetGroup.children.length > 0) cabinetGroup.remove(cabinetGroup.children[0]);
   const createContactor = (x: number, id: string, name: string) => {
     const cGroup = new THREE.Group(); cGroup.position.set(x, 0, 4);
     const body = new THREE.Mesh(new THREE.BoxGeometry(10, 14, 8), new THREE.MeshStandardMaterial({ color: 0x222222 }));
@@ -121,12 +131,12 @@ function buildCabinet(mode: string) {
 
     const addTerm = (tx: number, ty: number, tName: string, tLabel: string) => {
       const term = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1), new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8 }));
-      term.position.set(tx, ty, 4.5); term.rotation.x = Math.PI / 2; term.userData = { type: 'terminal', net: `${id}_${tName}`, label: `Borne ${tLabel}` };
+      term.position.set(tx, ty, 4.5); term.rotation.x = Math.PI / 2; term.userData = { type: 'terminal', net: `${id}_${tName}`, label: `Borne ${tLabel} (${name})` };
       cGroup.add(term); interactiveButtons.push(term); hoverableObjects.push(term);
     };
     addTerm(-3, 6, 'L1', 'L1'); addTerm(0, 6, 'L2', 'L2'); addTerm(3, 6, 'L3', 'L3');
     addTerm(-3, -6, 'T1', 'T1'); addTerm(0, -6, 'T2', 'T2'); addTerm(3, -6, 'T3', 'T3');
-    addTerm(-4, 3, 'A1', 'A1'); addTerm(4, -3, 'A2', 'A2');
+    addTerm(-4, 3, 'A1', 'A1 (Bobine)'); addTerm(4, -3, 'A2', 'A2 (Neutre)');
     cabinetGroup.add(cGroup); return ledMat;
   };
   if (mode === 'direct') {
@@ -143,8 +153,8 @@ function createIndicatorPanel() {
   const panelGroup = new THREE.Group(); panelGroup.position.set(-70, 20, 0);
   panelGroup.add(new THREE.Mesh(new THREE.BoxGeometry(22, 55, 18), new THREE.MeshStandardMaterial({ color: 0x2c3e50 })));
   const addPanelLed = (mat: THREE.Material, y: number, label: string) => {
-      const led = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 5, 24), mat); led.position.set(0, y, 10); led.rotation.x = Math.PI / 2; led.userData = { label };
-      panelGroup.add(led); hoverableObjects.push(led); return led;
+    const led = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 5, 24), mat); led.position.set(0, y, 10); led.rotation.x = Math.PI / 2; led.userData = { label };
+    panelGroup.add(led); hoverableObjects.push(led); return led;
   };
   const matGreen = new THREE.MeshStandardMaterial({ color: 0x004400, emissive: 0x000000 }); addPanelLed(matGreen, 16, "Marche");
   const matRed = new THREE.MeshStandardMaterial({ color: 0x440000, emissive: 0x000000 }); addPanelLed(matRed, 0, "Arrêt");
@@ -160,8 +170,7 @@ function create3DPushButtons() {
     const btn = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 8, 32), new THREE.MeshStandardMaterial({ color })); btn.position.set(x, 11, 0); btn.userData = { id, type, initialY: 11, label };
     panelGroup.add(btn); interactiveButtons.push(btn); hoverableObjects.push(btn);
   };
-  createBtn(0x27ae60, -24, 'btn_start', 'pulse', 'START'); createBtn(0xc0392b, -8, 'btn_stop', 'pulse', 'STOP');   
-  
+  createBtn(0x27ae60, -24, 'btn_start', 'pulse', 'START'); createBtn(0xc0392b, -8, 'btn_stop', 'pulse', 'STOP');
   panelLedOrangeMat = new THREE.MeshStandardMaterial({ color: 0x442200, emissive: 0x000000 });
   const ledO = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 3, 32), panelLedOrangeMat); ledO.position.set(8, 11.5, 0); ledO.userData = { label: 'Défaut Thermique' };
   panelGroup.add(ledO); hoverableObjects.push(ledO);
@@ -196,12 +205,12 @@ function createTerminalBox() {
   [-8, 0, 8].forEach(x => { const ds = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 15), strapMat); ds.position.set(x, 13.5, 0); ds.userData = { label: 'Barrette Triangle' }; deltaStraps.add(ds); hoverableObjects.push(ds); });
   deltaStraps.visible = false; boxGroup.add(deltaStraps);
 
-  coverGroup = new THREE.Group(); coverGroup.position.set(0, 9, -14); 
+  coverGroup = new THREE.Group(); coverGroup.position.set(0, 9, -14);
   const coverMesh = new THREE.Mesh(new THREE.BoxGeometry(32, 2, 28), new THREE.MeshPhysicalMaterial({ color: 0xdddddd, transmission: 0.9, transparent: true, side: THREE.DoubleSide }));
   coverMesh.position.set(0, 1, 14); coverMesh.userData = { id: 'cover', type: 'cover', label: 'Couvercle' };
   coverGroup.add(coverMesh); boxGroup.add(coverGroup); interactiveButtons.push(coverMesh); hoverableObjects.push(coverMesh);
-  
-  const probeGeo = new THREE.ConeGeometry(1.5, 12, 16); probeGeo.rotateX(Math.PI); probeGeo.translate(0, 6, 0); 
+
+  const probeGeo = new THREE.ConeGeometry(1.5, 12, 16); probeGeo.rotateX(Math.PI); probeGeo.translate(0, 6, 0);
   probeRedMesh = new THREE.Mesh(probeGeo, new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.3 })); probeRedMesh.visible = false; boxGroup.add(probeRedMesh);
   probeBlackMesh = new THREE.Mesh(probeGeo, new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 })); probeBlackMesh.visible = false; boxGroup.add(probeBlackMesh);
 
@@ -232,42 +241,25 @@ loader.load('/assets/MOTOR_ROTOR.glb', (gltf) => { rotorMesh = gltf.scene; rotor
 // ==========================================
 const statusText = document.getElementById('status')!;
 const uiRpm = document.getElementById('ui-rpm')!;
-
 const ctxChart = document.getElementById('oscillo-chart') as HTMLCanvasElement;
 const oscilloChart = new Chart(ctxChart, {
   type: 'line',
-  data: {
-    labels: Array(50).fill(''),
-    datasets: [
-      { label: 'Courant (A)', borderColor: '#f1c40f', borderWidth: 2, tension: 0.1, pointRadius: 0, data: Array(50).fill(0), yAxisID: 'yI' },
-      { label: 'Vitesse (RPM)', borderColor: '#3498db', borderWidth: 2, tension: 0.1, pointRadius: 0, data: Array(50).fill(0), yAxisID: 'yV' }
-    ]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false, animation: false,
-    plugins: { legend: { labels: { color: '#ecf0f1', boxWidth: 10 } } },
-    scales: {
-      x: { display: false },
-      yI: { type: 'linear', position: 'left', min: 0, max: 120, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#f1c40f' } },
-      yV: { type: 'linear', position: 'right', min: 0, max: 1600, grid: { drawOnChartArea: false }, ticks: { color: '#3498db' } }
-    }
-  }
+  data: { labels: Array(50).fill(''), datasets: [{ label: 'Courant (A)', borderColor: '#f1c40f', borderWidth: 2, tension: 0.1, pointRadius: 0, data: Array(50).fill(0), yAxisID: 'yI' }, { label: 'Vitesse (RPM)', borderColor: '#3498db', borderWidth: 2, tension: 0.1, pointRadius: 0, data: Array(50).fill(0), yAxisID: 'yV' }] },
+  options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { labels: { color: '#ecf0f1', boxWidth: 10 } } }, scales: { x: { display: false }, yI: { type: 'linear', position: 'left', min: 0, max: 120, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#f1c40f' } }, yV: { type: 'linear', position: 'right', min: 0, max: 1600, grid: { drawOnChartArea: false }, ticks: { color: '#3498db' } } } }
 });
 
 const selMotor = document.getElementById('sel-motor') as HTMLSelectElement;
 const selLoadType = document.getElementById('sel-load-type') as HTMLSelectElement;
 const sliderLoad = document.getElementById('slider-load') as HTMLInputElement;
 const sliderInertia = document.getElementById('slider-inertia') as HTMLInputElement;
-const loadVal = document.getElementById('load-val')!;
-const heatVal = document.getElementById('heat-val')!;
-const heatBar = document.getElementById('heat-bar')!;
+const loadVal = document.getElementById('load-val')!; const heatVal = document.getElementById('heat-val')!; const heatBar = document.getElementById('heat-bar')!;
 
-if (selMotor) selMotor.addEventListener('change', (e) => { 
-  const val = (e.target as HTMLSelectElement).value; ws.send(JSON.stringify({ action: "set_motor", target: val })); 
+if (selMotor) selMotor.addEventListener('change', (e) => {
+  const val = (e.target as HTMLSelectElement).value; ws.send(JSON.stringify({ action: "set_motor", target: val }));
   if (val === "3.0_2p") { oscilloChart.options.scales!.yI!.max = 50; oscilloChart.options.scales!.yV!.max = 3200; }
   else if (val === "7.5_4p") { oscilloChart.options.scales!.yI!.max = 120; oscilloChart.options.scales!.yV!.max = 1600; }
   else if (val === "15.0_6p") { oscilloChart.options.scales!.yI!.max = 250; oscilloChart.options.scales!.yV!.max = 1100; }
-  oscilloChart.update(); playClickSound(); 
+  oscilloChart.update(); playClickSound();
 });
 if (selLoadType) selLoadType.addEventListener('change', (e) => { ws.send(JSON.stringify({ action: "set_load_type", target: (e.target as HTMLSelectElement).value })); playClickSound(); });
 if (sliderInertia) sliderInertia.addEventListener('change', (e) => { ws.send(JSON.stringify({ action: "set_inertia", target: (e.target as HTMLInputElement).value })); });
@@ -276,27 +268,32 @@ if (sliderLoad) sliderLoad.addEventListener('input', (e) => { const val = (e.tar
 const btnCover = document.getElementById('btn-cover') as HTMLButtonElement;
 const btnStar = document.getElementById('btn-star') as HTMLButtonElement;
 const btnDelta = document.getElementById('btn-delta') as HTMLButtonElement;
+const btnNone = document.getElementById('btn-none') as HTMLButtonElement;
 
 if (btnStar) btnStar.addEventListener('click', () => { playClickSound(); currentCoupling = 'star'; updateCouplingUI(); ws.send(JSON.stringify({ action: "set_manual_coupling", target: "star" })); });
 if (btnDelta) btnDelta.addEventListener('click', () => { playClickSound(); currentCoupling = 'delta'; updateCouplingUI(); ws.send(JSON.stringify({ action: "set_manual_coupling", target: "delta" })); });
+if (btnNone) btnNone.addEventListener('click', () => { playClickSound(); currentCoupling = 'none'; updateCouplingUI(); ws.send(JSON.stringify({ action: "set_manual_coupling", target: "none" })); });
 
 function updateCouplingUI() {
   if (btnCover) btnCover.innerText = isCoverOpen ? "FERMER COUVERCLE" : "OUVRIR COUVERCLE";
   if (simMode === 'star_delta') {
-    if (btnStar) { btnStar.disabled = true; btnStar.style.background = '#333'; btnStar.innerText = "AUTO (KM2)"; }
-    if (btnDelta) { btnDelta.disabled = true; btnDelta.style.background = '#333'; btnDelta.innerText = "AUTO (KM3)"; }
+    if (btnStar) { btnStar.disabled = true; btnStar.style.background = '#333'; }
+    if (btnDelta) { btnDelta.disabled = true; btnDelta.style.background = '#333'; }
+    if (btnNone) { btnNone.disabled = true; btnNone.style.background = '#333'; }
     starStrap.visible = false; deltaStraps.visible = false;
   } else {
-    if (btnStar) btnStar.innerText = "ÉTOILE (Y)"; if (btnDelta) btnDelta.innerText = "TRIANGLE (Δ)";
     const canEdit = isCoverOpen && !isMotorPowered && !isKm1;
     if (canEdit) {
       if (btnStar) { btnStar.disabled = false; btnStar.style.background = currentCoupling === 'star' ? '#d35400' : '#2980b9'; }
       if (btnDelta) { btnDelta.disabled = false; btnDelta.style.background = currentCoupling === 'delta' ? '#d35400' : '#2980b9'; }
+      if (btnNone) { btnNone.disabled = false; btnNone.style.background = currentCoupling === 'none' ? '#d35400' : '#2980b9'; }
     } else {
       if (btnStar) { btnStar.disabled = true; btnStar.style.background = '#7f8c8d'; }
       if (btnDelta) { btnDelta.disabled = true; btnDelta.style.background = '#7f8c8d'; }
+      if (btnNone) { btnNone.disabled = true; btnNone.style.background = '#7f8c8d'; }
     }
-    starStrap.visible = (currentCoupling === 'star'); deltaStraps.visible = (currentCoupling === 'delta');
+    starStrap.visible = (currentCoupling === 'star' && simMode === 'direct');
+    deltaStraps.visible = (currentCoupling === 'delta' && simMode === 'direct');
   }
 }
 
@@ -313,7 +310,9 @@ function switchMode(newMode: string) {
 }
 document.getElementById('btn-mode-direct')?.addEventListener('click', () => switchMode('direct')); document.getElementById('btn-mode-sd')?.addEventListener('click', () => switchMode('star_delta'));
 
-// MULTIMÈTRE
+// ==========================================
+// SOLVEUR ÉLECTRIQUE DU MULTIMÈTRE
+// ==========================================
 const chkBypass = document.getElementById('chk-bypass') as HTMLInputElement;
 if (chkBypass) chkBypass.addEventListener('change', (e) => { isBypassActive = (e.target as HTMLInputElement).checked; playClickSound(); });
 const displayMultimeter = document.getElementById('multimeter-display')!; const mmUnit = document.getElementById('mm-unit')!; const megaVoltageContainer = document.getElementById('mega-voltage-container')!;
@@ -327,38 +326,121 @@ document.getElementById('btn-mm-v')?.addEventListener('click', () => setMmMode('
 document.getElementById('btn-probe-red')?.addEventListener('click', () => { activeProbe = 'red'; playClickSound(); }); document.getElementById('btn-probe-black')?.addEventListener('click', () => { activeProbe = 'black'; playClickSound(); });
 document.getElementById('btn-remove-probes')?.addEventListener('click', () => { playClickSound(); nodeRed = null; nodeBlack = null; probeRedMesh.visible = false; probeBlackMesh.visible = false; updateMultimeter(); });
 
-let simCurrentV = 0;
+function getVoltage(n1: string, n2: string): number {
+  if (n1 === n2) return 0.0;
+
+  const getPhase = (n: string): string => {
+    // Réseau sur l'amont KM1 (toujours présent)
+    if (n === 'km1_L1') return 'P1'; if (n === 'km1_L2') return 'P2'; if (n === 'km1_L3') return 'P3';
+
+    // Sortie KM1
+    if (['km1_T1', 'km2_L1', 'km3_L1', 'U1'].includes(n)) return isKm1 ? 'P1' : 'OFF';
+    if (['km1_T2', 'km2_L2', 'km3_L2', 'V1'].includes(n)) return isKm1 ? 'P2' : 'OFF';
+    if (['km1_T3', 'km2_L3', 'km3_L3', 'W1'].includes(n)) return isKm1 ? 'P3' : 'OFF';
+
+    // Bas du circuit
+    if (['km3_T1', 'W2', 'km2_T1'].includes(n)) {
+      if (simMode === 'star_delta') { if (isKm3 && isKm1) return 'P1'; if (isKm2 && isKm1) return 'STAR'; }
+      else { if (currentCoupling === 'star' && isKm1) return 'STAR'; if (currentCoupling === 'delta' && isKm1) return 'P1'; }
+      return 'OFF';
+    }
+    if (['km3_T2', 'U2', 'km2_T2'].includes(n)) {
+      if (simMode === 'star_delta') { if (isKm3 && isKm1) return 'P2'; if (isKm2 && isKm1) return 'STAR'; }
+      else { if (currentCoupling === 'star' && isKm1) return 'STAR'; if (currentCoupling === 'delta' && isKm1) return 'P2'; }
+      return 'OFF';
+    }
+    if (['km3_T3', 'V2', 'km2_T3'].includes(n)) {
+      if (simMode === 'star_delta') { if (isKm3 && isKm1) return 'P3'; if (isKm2 && isKm1) return 'STAR'; }
+      else { if (currentCoupling === 'star' && isKm1) return 'STAR'; if (currentCoupling === 'delta' && isKm1) return 'P3'; }
+      return 'OFF';
+    }
+
+    if (n.endsWith('_A2')) return 'NEUTRAL';
+    if (n === 'km1_A1') return isKm1 ? 'P_CTRL' : 'OFF';
+    if (n === 'km2_A1') return isKm2 ? 'P_CTRL' : 'OFF';
+    if (n === 'km3_A1') return isKm3 ? 'P_CTRL' : 'OFF';
+
+    if (n === 'PE') return 'NEUTRAL';
+    return 'OFF';
+  };
+
+  const p1 = getPhase(n1); const p2 = getPhase(n2);
+  if (p1 === 'OFF' || p2 === 'OFF' || p1 === p2) return 0.0;
+
+  const phases = ['P1', 'P2', 'P3'];
+  if (phases.includes(p1) && phases.includes(p2)) return 400.0; // Tension Composée
+  if ((phases.includes(p1) && ['NEUTRAL', 'STAR'].includes(p2)) || (['NEUTRAL', 'STAR'].includes(p1) && phases.includes(p2))) return 230.0;
+  if ((p1 === 'P_CTRL' && p2 === 'NEUTRAL') || (p2 === 'P_CTRL' && p1 === 'NEUTRAL')) return 24.0;
+  return 0.0;
+}
+
 function calculateResistance(n1: string, n2: string): string {
   if (n1 === n2) return "0.0"; const pair = [n1, n2].sort().join('-');
-  if (['U1-U2', 'V1-V2', 'W1-W2'].includes(pair)) return (12.5 + Math.random()*0.2).toFixed(1);
-  if (pair === 'km1_A1-km1_A2') return stateKm1Broken ? "O.L" : "324.5"; if (pair === 'km2_A1-km2_A2') return stateKm2Broken ? "O.L" : "321.2"; if (pair === 'km3_A1-km3_A2') return stateKm3Broken ? "O.L" : "328.0";
-  if (pair.includes('_L1-') && pair.includes('_T1')) {
-    const km = pair.split('_')[0]; const closed = (km === 'km1' && isKm1) || (km === 'km2' && isKm2) || (km === 'km3' && isKm3); return closed ? "0.1" : "O.L";
-  } return "O.L";
+
+  if (pair === 'km1_A1-km1_A2') return stateKm1Broken ? "O.L" : "324.5";
+  if (pair === 'km2_A1-km2_A2') return stateKm2Broken ? "O.L" : "321.2";
+  if (pair === 'km3_A1-km3_A2') return stateKm3Broken ? "O.L" : "328.0";
+
+  if (pair.includes('_L1-') && pair.includes('_T1')) { const km = pair.split('_')[0]; const closed = (km === 'km1' && isKm1) || (km === 'km2' && isKm2) || (km === 'km3' && isKm3); return closed ? "0.1" : "O.L"; }
+  if (pair.includes('_L2-') && pair.includes('_T2')) { const km = pair.split('_')[0]; const closed = (km === 'km1' && isKm1) || (km === 'km2' && isKm2) || (km === 'km3' && isKm3); return closed ? "0.1" : "O.L"; }
+  if (pair.includes('_L3-') && pair.includes('_T3')) { const km = pair.split('_')[0]; const closed = (km === 'km1' && isKm1) || (km === 'km2' && isKm2) || (km === 'km3' && isKm3); return closed ? "0.1" : "O.L"; }
+
+  const isW1 = ['U1', 'V1', 'W1', 'U2', 'V2', 'W2'].includes(n1);
+  const isW2 = ['U1', 'V1', 'W1', 'U2', 'V2', 'W2'].includes(n2);
+
+  if (isW1 && isW2) {
+    const barrettesPresent = simMode === 'direct' && currentCoupling !== 'none';
+    if (barrettesPresent) return "ERR(BAR)";
+    if (['U1-U2', 'V1-V2', 'W1-W2'].includes(pair)) return (12.5 + Math.random() * 0.2).toFixed(1);
+    return "O.L";
+  }
+  return "O.L";
 }
 
 function calculateMegaOhm(n1: string, n2: string): string {
   if (n1 === n2) return "0.0"; const pair = [n1, n2].sort().join('-');
-  if (pair.includes('PE') && (pair.includes('U') || pair.includes('V') || pair.includes('W'))) return "> 999"; return "O.L";
+  const isW1 = ['U1', 'V1', 'W1', 'U2', 'V2', 'W2'].includes(n1);
+  const isW2 = ['U1', 'V1', 'W1', 'U2', 'V2', 'W2'].includes(n2);
+
+  const barrettesPresent = simMode === 'direct' && currentCoupling !== 'none';
+  if ((isW1 || isW2) && barrettesPresent) return "ERR(BAR)";
+
+  if (pair.includes('PE') && (isW1 || isW2)) return "> 500";
+  if (isW1 && isW2 && !['U1-U2', 'V1-V2', 'W1-W2'].includes(pair)) return "> 500";
+  if ((pair.includes('L1') && pair.includes('L2')) || (pair.includes('L2') && pair.includes('L3')) || (pair.includes('L1') && pair.includes('L3'))) return "> 999";
+
+  return "O.L";
 }
 
 function updateMultimeter() {
   if (!displayMultimeter) return;
   if (!nodeRed || !nodeBlack) { displayMultimeter.innerText = "---"; displayMultimeter.style.color = "#111"; displayMultimeter.style.textShadow = "none"; return; }
-  
+
+  const isCircuitLive = isKm1 || isKm2 || isKm3 || isMotorPowered;
+
   if (mmMode === 'V') {
-    const validNodes = ['U1', 'V1', 'W1', 'U2', 'V2', 'W2'];
-    if (isKm1 && validNodes.includes(nodeRed) && validNodes.includes(nodeBlack) && nodeRed !== nodeBlack) {
-      displayMultimeter.innerText = simCurrentV.toFixed(1); displayMultimeter.style.color = "#ff3333"; displayMultimeter.style.textShadow = "0 0 5px #ff0000";
+    const baseVoltage = getVoltage(nodeRed, nodeBlack);
+    if (baseVoltage > 0) {
+      const fluctuation = (Math.random() * 3 - 1.5);
+      displayMultimeter.innerText = (baseVoltage + fluctuation).toFixed(1);
+      displayMultimeter.style.color = "#ff3333"; displayMultimeter.style.textShadow = "0 0 5px #ff0000";
     } else { displayMultimeter.innerText = "0.00"; displayMultimeter.style.color = "#111"; displayMultimeter.style.textShadow = "none"; }
-  } 
+  }
   else if (mmMode === 'OHM') {
-    if (isMotorPowered && !isBypassActive) { displayMultimeter.innerText = "ERR(V)"; displayMultimeter.style.color = "#c0392b"; displayMultimeter.style.textShadow = "none"; }
-    else { displayMultimeter.innerText = calculateResistance(nodeRed, nodeBlack); displayMultimeter.style.color = "#111"; displayMultimeter.style.textShadow = "none"; }
+    if (isCircuitLive && !isBypassActive) { displayMultimeter.innerText = "ERR(V)"; displayMultimeter.style.color = "#c0392b"; displayMultimeter.style.textShadow = "none"; }
+    else {
+      const res = calculateResistance(nodeRed, nodeBlack);
+      displayMultimeter.innerText = res;
+      displayMultimeter.style.color = res.includes("ERR") ? "#c0392b" : "#111"; displayMultimeter.style.textShadow = "none";
+    }
   }
   else if (mmMode === 'MEGA') {
-    if (isMotorPowered) { displayMultimeter.innerText = "ERR(V)"; displayMultimeter.style.color = "#c0392b"; displayMultimeter.style.textShadow = "none"; }
-    else { displayMultimeter.innerText = calculateMegaOhm(nodeRed, nodeBlack); displayMultimeter.style.color = "#111"; displayMultimeter.style.textShadow = "none"; }
+    if (isCircuitLive) { displayMultimeter.innerText = "ERR(V)"; displayMultimeter.style.color = "#c0392b"; displayMultimeter.style.textShadow = "none"; }
+    else {
+      const res = calculateMegaOhm(nodeRed, nodeBlack);
+      displayMultimeter.innerText = res;
+      displayMultimeter.style.color = res.includes("ERR") ? "#c0392b" : "#111"; displayMultimeter.style.textShadow = "none";
+    }
   }
 }
 
@@ -384,15 +466,14 @@ ws.onmessage = (event) => {
   const wasPowered = isMotorPowered; const wasFaultActive = isFaultActive;
   const wasKm1 = isKm1; const wasKm2 = isKm2; const wasKm3 = isKm3;
 
-  isMotorPowered = state.motor_running; // Dans le backend "motor_running" = sous tension (même bloqué)
+  isMotorPowered = state.motor_running;
   isFaultActive = state.fault_active;
   isKm1 = state.km1_energized; isKm2 = state.km2_energized; isKm3 = state.km3_energized;
   stateKm1Broken = state.km1_broken; stateKm2Broken = state.km2_broken; stateKm3Broken = state.km3_broken;
-  simCurrentV = state.voltage || 0.0;
   activeCouplingStr = state.coupling || 'none';
-  
+
   realRpm = state.speed_rpm || 0; uiRpm.innerText = Math.round(realRpm).toString();
-  
+
   oscilloChart.data.datasets[0].data.push(state.current || 0); oscilloChart.data.datasets[0].data.shift();
   oscilloChart.data.datasets[1].data.push(realRpm); oscilloChart.data.datasets[1].data.shift();
   oscilloChart.update();
@@ -403,17 +484,13 @@ ws.onmessage = (event) => {
   }
 
   if (state.specs) {
-    document.getElementById('spec-pn')!.innerText = state.specs.Pn.toFixed(1);
-    document.getElementById('spec-in')!.innerText = state.specs.In.toFixed(1);
-    document.getElementById('spec-ns')!.innerText = state.specs.Ns.toString();
-    document.getElementById('spec-cos')!.innerText = state.specs.cos.toFixed(2);
+    document.getElementById('spec-pn')!.innerText = state.specs.Pn.toFixed(1); document.getElementById('spec-in')!.innerText = state.specs.In.toFixed(1); document.getElementById('spec-ns')!.innerText = state.specs.Ns.toString(); document.getElementById('spec-cos')!.innerText = state.specs.cos.toFixed(2);
   }
 
   const guideText = document.getElementById('dynamic-guide-text')!;
   if (state.guide_text) guideText.innerHTML = state.guide_text;
-  
-  updateCouplingUI(); updateMultimeter(); 
-  updateMotorAudio(realRpm, isMotorPowered);
+
+  updateCouplingUI(); updateMultimeter();
 
   const clueBox = document.getElementById('fault-clue-box')!; const clueText = document.getElementById('fault-clue-text')!;
   if (state.fault_clue) { clueBox.style.display = 'block'; clueText.innerText = state.fault_clue; } else { clueBox.style.display = 'none'; }
@@ -432,7 +509,6 @@ ws.onmessage = (event) => {
     leds.matOrange.emissive.setHex(0xffaa00); leds.matGreen.emissive.setHex(0x000000); leds.matRed.emissive.setHex(0x000000);
     statusText.innerText = "⚠️ DÉFAUT THERMIQUE ACTIF"; statusText.style.color = "#e67e22";
   } else if (!state.fault_clue && statusText.innerText.includes("remplacée")) {
-    // Keep repair text
   } else if (state.fault_clue) {
     leds.matRed.emissive.setHex(0xff0000); leds.matGreen.emissive.setHex(0x000000); leds.matOrange.emissive.setHex(0x000000);
     statusText.innerText = "⚠️ PANNE INJECTÉE"; statusText.style.color = "#c0392b";
@@ -446,13 +522,16 @@ ws.onmessage = (event) => {
     }
   }
 
-  // Les fils s'allument si un contacteur puissance est fermé (Même si moteur calé)
   wires.forEach(w => {
     if (w.netName.includes("PHASE")) {
       const isLive = isKm1 || isKm2 || isKm3;
       w.material.color.setHex(isLive ? w.activeColor : w.defaultColor); w.material.emissive.setHex(isLive ? w.activeColor : 0x000000);
     }
   });
+
+  if (isMotorPowered && !wasPowered) setMotorSound(true, activeCouplingStr);
+  if (!isMotorPowered && wasPowered) setMotorSound(false, 'none');
+  if (isMotorPowered) updateMotorPitch(activeCouplingStr);
 };
 
 // ==========================================
@@ -470,7 +549,7 @@ function sendAction(id: string, type: string, action: string) {
 
 function toggleCover() {
   playClickSound();
-  if (!isCoverOpen) { if (isMotorPowered && !isBypassActive) { sendAction('btn_stop', 'pulse', 'press'); setTimeout(() => sendAction('btn_stop', 'pulse', 'release'), 100); } isCoverOpen = true; } 
+  if (!isCoverOpen) { if (isMotorPowered && !isBypassActive) { sendAction('btn_stop', 'pulse', 'press'); setTimeout(() => sendAction('btn_stop', 'pulse', 'release'), 100); } isCoverOpen = true; }
   else { isCoverOpen = false; }
   updateCouplingUI();
 }
@@ -509,7 +588,7 @@ window.addEventListener('pointerdown', (event) => {
         probeBlackMesh.position.copy(mesh.position); if (mesh.position.y > 10) probeBlackMesh.position.y += 3; else probeBlackMesh.position.z += 3;
         probeBlackMesh.visible = true; nodeBlack = mesh.userData.net; activeProbe = null; playClickSound();
       }
-      updateMultimeter(); return; 
+      updateMultimeter(); return;
     }
     if (mesh.userData.type === 'cover') toggleCover(); else { activePressedMesh = mesh; mesh.position.y = mesh.userData.initialY - 3; sendAction(mesh.userData.id, mesh.userData.type, 'press'); }
   }
@@ -531,12 +610,12 @@ document.getElementById('btn-reset')?.addEventListener('mousedown', () => { if (
 document.getElementById('btn-reset')?.addEventListener('mouseup', () => { if (panelLedBlueMat) panelLedBlueMat.emissive.setHex(0x000000); });
 
 let lastTime = performance.now();
-function animate() { 
-  requestAnimationFrame(animate); 
+function animate() {
+  requestAnimationFrame(animate);
   const now = performance.now(); const dt = (now - lastTime) / 1000.0; lastTime = now;
-  controls.update(); 
-  const targetRotX = isCoverOpen ? -Math.PI / 1.7 : 0; coverGroup.rotation.x += (targetRotX - coverGroup.rotation.x) * 0.15; 
+  controls.update();
+  const targetRotX = isCoverOpen ? -Math.PI / 1.7 : 0; coverGroup.rotation.x += (targetRotX - coverGroup.rotation.x) * 0.15;
   if (rotorMesh) { const rotationPerSec = (realRpm / 60) * (2 * Math.PI); rotorMesh.rotation.x += rotationPerSec * dt; }
-  renderer.render(scene, camera); 
+  renderer.render(scene, camera);
 }
 animate();

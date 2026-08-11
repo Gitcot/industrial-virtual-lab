@@ -166,9 +166,7 @@
   <div id="app"></div>
   <div id="tooltip">Label</div>
 
-  <!-- COLONNE GAUCHE -->
   <div class="side-panel" style="left: 0;">
-
     <div class="ui-box" style="border-left: 4px solid #3498db; color: white;">
       <h2 style="margin: 0 0 5px 0; font-size: 1.2rem;">🏭 Laboratoire Électromécanique</h2>
       <p id="status" style="margin: 0; font-weight: bold; color: #f1c40f;">Connexion au serveur...</p>
@@ -176,40 +174,30 @@
           style="color: #3498db; font-weight:bold;">0</span> tr/min</p>
     </div>
 
-    <!-- PARAMÉTRAGE LABO -->
     <div class="ui-box" style="border-left: 4px solid #1abc9c;">
       <div class="box-header" style="color: #1abc9c;">
-        <h3>⚙️ Choix du Matériel</h3>
-        <span class="toggle-icon">▼</span>
+        <h3>⚙️ Choix du Matériel</h3><span class="toggle-icon">▼</span>
       </div>
       <div class="box-content">
-
         <select id="sel-motor" class="select-lab">
           <option value="3.0_2p">Moteur 3 kW (2 Pôles)</option>
           <option value="7.5_4p" selected>Moteur 7.5 kW (4 Pôles)</option>
           <option value="15.0_6p">Moteur 15 kW (6 Pôles)</option>
         </select>
-
-        <!-- Plaque Signalétique Dynamique -->
         <div class="spec-grid" id="spec-board">
-          <span>Pn: <strong id="spec-pn">-</strong> kW</span>
-          <span>In: <strong id="spec-in">-</strong> A</span>
-          <span>Ns: <strong id="spec-ns">-</strong> tr/min</span>
-          <span>Cos φ: <strong id="spec-cos">-</strong></span>
+          <span>Pn: <strong id="spec-pn">-</strong> kW</span><span>In: <strong id="spec-in">-</strong> A</span>
+          <span>Ns: <strong id="spec-ns">-</strong> tr/min</span><span>Cos φ: <strong id="spec-cos">-</strong></span>
         </div>
-
         <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold; margin-top:10px; display:block;">Machine
-          Accouplée (Charge) :</label>
+          Accouplée :</label>
         <select id="sel-load-type" class="select-lab">
           <option value="quadratic" selected>Ventilateur/Pompe (Quadratique)</option>
           <option value="constant">Convoyeur/Levage (Constant)</option>
           <option value="inertia">Broyeur (Forte Inertie)</option>
         </select>
-
-        <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold;">Niveau de Charge : <span
+        <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold;">Charge : <span
             id="load-val">50</span>%</label>
         <input type="range" id="slider-load" min="0" max="150" value="50">
-
         <div style="margin-top: 5px;">
           <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold;">Chauffe Thermique F1 : <span
               id="heat-val">0</span>%</label>
@@ -220,23 +208,19 @@
       </div>
     </div>
 
-    <!-- GUIDE DYNAMIQUE -->
     <div class="ui-box" style="border-left: 4px solid #e67e22; background: rgba(211, 84, 0, 0.2);">
       <div class="box-header" style="color: #f39c12;">
-        <h3>💡 Guide de Dimensionnement</h3>
-        <span class="toggle-icon">▼</span>
+        <h3>💡 Guide de Dimensionnement</h3><span class="toggle-icon">▼</span>
       </div>
       <div class="box-content">
-        <p id="dynamic-guide-text" style="color: #ecf0f1; font-size: 0.85rem; line-height: 1.4; margin: 0;">En attente
-          des données physiques...</p>
+        <p id="dynamic-guide-text" style="color: #ecf0f1; font-size: 0.85rem; line-height: 1.4; margin: 0;">En
+          attente...</p>
       </div>
     </div>
 
-    <!-- Mode & Couplage Manuel -->
     <div class="ui-box" style="border-left: 4px solid #9b59b6;">
       <div class="box-header" style="color: #9b59b6;">
-        <h3>Contrôle & Couplage</h3>
-        <span class="toggle-icon">▶</span>
+        <h3>Contrôle & Couplage</h3><span class="toggle-icon">▶</span>
       </div>
       <div class="box-content collapsed">
         <div style="display: flex; gap: 8px; margin-bottom:10px;">
@@ -249,21 +233,22 @@
         <button id="btn-cover"
           style="background: #34495e; color: white; padding: 8px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 8px; width: 100%;">OUVRIR
           COUVERCLE</button>
-        <div style="display: flex; gap: 8px;">
+
+        <!-- NOUVEAU BOUTON : SANS BARRETTES -->
+        <div style="display: flex; gap: 4px;">
           <button id="btn-star" disabled
-            style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed;">ÉTOILE
-            (Y)</button>
+            style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: not-allowed;">ÉTOILE</button>
           <button id="btn-delta" disabled
-            style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed;">TRIANGLE
-            (Δ)</button>
+            style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: not-allowed;">TRIANGLE</button>
+          <button id="btn-none" disabled
+            style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: not-allowed;">SANS</button>
         </div>
       </div>
     </div>
 
     <div class="ui-box" style="border-left: 4px solid #2ecc71;">
       <div class="box-header" style="color: #2ecc71;">
-        <h3>Pupitre</h3>
-        <span class="toggle-icon">▼</span>
+        <h3>Pupitre</h3><span class="toggle-icon">▼</span>
       </div>
       <div class="box-content">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
@@ -280,25 +265,20 @@
     </div>
   </div>
 
-  <!-- COLONNE DROITE : OUTILS -->
   <div class="side-panel" style="right: 0;">
-
     <div class="ui-box" style="border-left: 4px solid #3498db;">
       <div class="box-header" style="color: #3498db;">
-        <h3>📈 Oscilloscope</h3>
-        <span class="toggle-icon">▼</span>
+        <h3>📈 Oscilloscope</h3><span class="toggle-icon">▼</span>
       </div>
       <div class="box-content">
-        <div style="background: #111; padding: 5px; border-radius: 4px; height: 180px;">
-          <canvas id="oscillo-chart"></canvas>
-        </div>
+        <div style="background: #111; padding: 5px; border-radius: 4px; height: 180px;"><canvas
+            id="oscillo-chart"></canvas></div>
       </div>
     </div>
 
     <div class="ui-box" style="border-left: 4px solid #e74c3c; text-align: center;">
       <div class="box-header" style="color: #ecf0f1;">
-        <h3>Multimètre Numérique</h3>
-        <span class="toggle-icon">▶</span>
+        <h3>Multimètre Numérique</h3><span class="toggle-icon">▶</span>
       </div>
       <div class="box-content collapsed">
         <div style="display: flex; gap: 4px; margin-bottom: 10px;">
@@ -347,8 +327,7 @@
 
     <div class="ui-box" style="border-left: 4px solid #f1c40f;">
       <div class="box-header" style="color: #f1c40f;">
-        <h3>🛠️ Dépannage & Magasin</h3>
-        <span class="toggle-icon">▶</span>
+        <h3>🛠️ Dépannage & Magasin</h3><span class="toggle-icon">▶</span>
       </div>
       <div class="box-content collapsed">
         <button id="btn-fault"
@@ -356,7 +335,7 @@
           PANNE</button>
         <div id="fault-clue-box"
           style="display: none; background: #8e44ad; padding: 10px; border-radius: 4px; border: 1px solid #fff; margin-bottom: 8px;">
-          <strong style="color: #fff; font-size: 0.9rem;">🔎 Indice (Panne) :</strong>
+          <strong style="color: #fff; font-size: 0.9rem;">🔎 Indice :</strong>
           <p id="fault-clue-text" style="margin: 5px 0 0 0; color: #ecf0f1; font-size: 0.85rem; line-height: 1.3;">...
           </p>
         </div>
@@ -373,7 +352,6 @@
         </div>
       </div>
     </div>
-
   </div>
 
   <script>
@@ -385,7 +363,6 @@
       });
     });
   </script>
-
   <script type="module" src="/src/main.ts"></script>
 </body>
 

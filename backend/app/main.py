@@ -13,9 +13,8 @@ from app.simulation.components import PushButton, Contactor
 
 app = FastAPI(title="Industrial Virtual Lab API")
 
-app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
-)
+app.add_middleware(CORSMiddleware, allow_origins=[
+                   "*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
 def build_circuit(mode: str = "direct") -> tuple[SimulationSolver, dict]:
@@ -24,7 +23,6 @@ def build_circuit(mode: str = "direct") -> tuple[SimulationSolver, dict]:
     return load_circuit_from_json(schema_path)
 
 
-# --- CATALOGUE DES MOTEURS (Plaques Signalétiques) ---
 MOTOR_CATALOG = {
     "3.0_2p": {"Pn": 3.0, "Ns": 3000, "In": 5.9, "Id_ratio": 7.2, "Cn": 9.9, "Cmax_ratio": 2.5, "Jm": 0.003, "cos": 0.85, "name": "3.0 kW - 2 Pôles"},
     "7.5_4p": {"Pn": 7.5, "Ns": 1500, "In": 14.5, "Id_ratio": 6.8, "Cn": 49.0, "Cmax_ratio": 2.2, "Jm": 0.03, "cos": 0.82, "name": "7.5 kW - 4 Pôles"},
@@ -34,21 +32,24 @@ MOTOR_CATALOG = {
 
 def generate_dynamic_guide(mode, spec, load_type, load_factor, coupling, is_tripped, omega, Cm, Cr):
     if is_tripped:
-        return "❌ DÉCLENCHEMENT THERMIQUE (F1) : L'accumulation de chaleur (I²t) a atteint 100%. Le démarrage a été trop long ou le moteur a calé."
+        return "❌ DÉCLENCHEMENT (F1) : Surcharge thermique (I²t = 100%). Démarrage trop long ou calage."
+
+    if mode == "direct" and coupling == "none":
+        return "⚠️ CIRCUIT OUVERT : Aucune barrette n'est posée. Le courant ne peut pas circuler, le moteur ne démarrera pas."
 
     if coupling != "none" and omega <= 0.1 and Cm > 0 and Cm < Cr:
-        return f"⚠️ MOTEUR CALÉ : Le couple moteur en {coupling.upper()} ({Cm:.1f} Nm) est inférieur au couple résistant ({Cr:.1f} Nm) ! Le rotor est bloqué, le courant est maximal."
+        return f"⚠️ MOTEUR CALÉ : Le couple en {coupling.upper()} ({Cm:.1f} Nm) ne vainc pas la charge ({Cr:.1f} Nm) ! Imax permanent."
 
     adv = ""
     if mode == "direct":
-        adv += f"⚡ DIRECT : Pleine tension. Appel de courant violent (Id ≈ {spec['In'] * spec['Id_ratio']:.1f}A). "
+        adv += f"⚡ DIRECT : Pleine tension. Id ≈ {spec['In'] * spec['Id_ratio']:.1f}A. "
     elif coupling != "none":
-        adv += f"🔄 Y/Δ : En Étoile, le couple est divisé par 3 (Cm = {Cm:.1f} Nm). "
+        adv += f"🔄 Y/Δ : En Étoile, Cm est divisé par 3 ({Cm:.1f} Nm). "
 
     if load_type == "constant" and load_factor > 60 and coupling == "star":
-        adv += "⚠️ DANGER : Charge constante élevée. Le couple en Étoile risque d'être insuffisant."
+        adv += "⚠️ DANGER : Charge constante élevée. L'Étoile risque de caler."
     elif load_type == "inertia" and coupling != "none":
-        adv += "⚙️ FORTE INERTIE : L'accélération sera très lente. Surveillez la jauge d'échauffement !"
+        adv += "⚙️ FORTE INERTIE : Accélération lente. Surveillez la chauffe !"
 
     if omega > 0.1 and coupling == "delta" and mode == "star_delta":
         adv += "✅ TRANSITION RÉUSSIE : Moteur en Triangle (Pleine puissance)."
@@ -59,17 +60,10 @@ def generate_dynamic_guide(mode, spec, load_type, load_factor, coupling, is_trip
 @app.websocket("/ws/simulation")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-
     sim_context = {
-        "mode": "direct",
-        "manual_coupling": "star",
-        "active_fault_clue": None,
-        "motor_id": "7.5_4p",
-        "load_type": "quadratic",
-        "load_factor": 50.0,
-        "inertia_mult": 2.0,
-        "omega": 0.0,
-        "heat": 0.0
+        "mode": "direct", "manual_coupling": "star", "active_fault_clue": None,
+        "motor_id": "7.5_4p", "load_type": "quadratic", "load_factor": 50.0,
+        "inertia_mult": 2.0, "omega": 0.0, "heat": 0.0
     }
     sim_context["solver"], sim_context["components"] = build_circuit("direct")
 
@@ -107,8 +101,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 spec = MOTOR_CATALOG[sim_context["motor_id"]]
                 ws_sync = spec["Ns"] * (2 * math.pi / 60.0)
                 Cmax = spec["Cn"] * spec["Cmax_ratio"]
-
-                # Inertie énorme si type "broyeur"
                 inert_m = 50.0 if sim_context["load_type"] == "inertia" else sim_context["inertia_mult"]
                 J_total = spec["Jm"] * (1.0 + inert_m)
 
@@ -117,13 +109,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 I_line = 0.0
                 U_motor = 0.0
 
-                # --- MODÈLE ÉLECTRIQUE (KLOSS) ---
                 if coupling in ["star", "delta"]:
                     g = (ws_sync - omega) / ws_sync
                     g = max(0.01, min(1.0, g))
-                    gm = 0.20
-
-                    Cm_delta = (2 * Cmax) / ((g / gm) + (gm / g))
+                    Cm_delta = (2 * Cmax) / ((g / 0.20) + (0.20 / g))
                     I_delta = spec["In"] * \
                         (0.3 + (spec["Id_ratio"] - 0.3) * (g**1.5))
 
@@ -136,26 +125,21 @@ async def websocket_endpoint(websocket: WebSocket):
                         I_line = I_delta
                         U_motor = 400.0
 
-                # --- MODÈLE MÉCANIQUE (CHARGE) ---
                 Cr = 0.0
                 lf = sim_context["load_factor"] / 100.0
-
-                # Frottement sec présent même à l'arrêt !
                 Cr += 0.02 * spec["Cn"]
                 if omega > 0:
                     Cr += 0.01 * spec["Cn"] * (omega / ws_sync)
-
                 if sim_context["load_type"] == "constant":
                     Cr += spec["Cn"] * lf
-                else:  # quadratic ou inertia
+                else:
                     Cr += spec["Cn"] * lf * ((omega / ws_sync)**2)
 
-                # --- PFD EXACT ---
                 if omega <= 0 and Cm <= Cr and coupling != "none":
-                    accel = 0.0  # CALAGE ABSOLU
+                    accel = 0.0
                     omega = 0.0
                 elif coupling == "none":
-                    accel = -Cr / J_total  # Roue libre
+                    accel = -Cr / J_total
                 else:
                     accel = (Cm - Cr) / J_total
 
@@ -168,14 +152,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 sim_context["omega"] = omega
                 speed_rpm = omega * (60.0 / (2 * math.pi))
 
-                # --- MODÈLE THERMIQUE (I²t) ---
-                K_heat = 0.8  # Vitesse d'échauffement ajustée pour le labo
+                K_heat = 0.8
                 if I_line > spec["In"] * 1.05:
                     sim_context["heat"] += ((I_line /
                                             spec["In"])**2) * dt * K_heat
                 else:
-                    sim_context["heat"] -= dt * 5.0  # Refroidissement
-
+                    sim_context["heat"] -= dt * 5.0
                 sim_context["heat"] = max(0.0, min(sim_context["heat"], 100.0))
 
                 is_tripped = False
@@ -183,21 +165,19 @@ async def websocket_endpoint(websocket: WebSocket):
                     f1.trip()
                     is_tripped = True
 
-                # Bruitage signal oscilloscope
                 if I_line > 0:
                     I_line += random.uniform(-0.2, 0.2)
                 if U_motor > 0:
                     U_motor += random.uniform(-1.5, 1.5)
 
-                guide_text = generate_dynamic_guide(sim_context["mode"], spec, sim_context["load_type"],
-                                                    sim_context["load_factor"], coupling, (f1.is_tripped if f1 else False), omega, Cm, Cr)
+                guide_text = generate_dynamic_guide(
+                    sim_context["mode"], spec, sim_context["load_type"], sim_context["load_factor"], coupling, is_tripped, omega, Cm, Cr)
 
                 state = {
                     "km1_energized": km1.is_energized if km1 else False,
                     "km2_energized": km2.is_energized if km2 else False,
                     "km3_energized": km3.is_energized if km3 else False,
                     "coupling": coupling,
-                    # Vrai si le moteur est SOUS TENSION
                     "motor_running": (coupling != "none"),
                     "speed_rpm": speed_rpm,
                     "fault_active": f1.is_tripped if f1 else False,
@@ -229,7 +209,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     target)
                 sim_context["omega"] = 0.0
                 sim_context["heat"] = 0.0
-
             elif action == "set_motor":
                 sim_context["motor_id"] = target
             elif action == "set_load_type":
@@ -250,9 +229,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     faulty_id = random.choice(valid)
                     components[faulty_id].is_broken = True
                     symptoms = {
-                        "km1": "Panne : KM1 ne ferme pas le circuit de puissance.",
-                        "km2": "Panne : Le point neutre ne se fait pas. KM2 (Étoile) HS.",
-                        "km3": "Panne : Transition impossible. KM3 (Triangle) HS."
+                        "km1": "Panne : KM1 ne ferme pas la puissance. Vérifiez L1-T1 et A1-A2.",
+                        "km2": "Panne : KM2 (Étoile) HS. Le point neutre ne se fait pas.",
+                        "km3": "Panne : KM3 (Triangle) HS. Coupure après 3s."
                     }
                     sim_context["active_fault_clue"] = symptoms[faulty_id]
 
@@ -275,7 +254,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     elif action == "reset":
                         components["thermal_f1"].reset()
                         sim_context["heat"] = 0.0
-
     except WebSocketDisconnect:
         pass
     finally:

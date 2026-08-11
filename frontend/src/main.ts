@@ -456,8 +456,19 @@ document.getElementById('btn-fault')?.addEventListener('click', () => { playClic
 // ==========================================
 // 4. WEBSOCKET & MISE À JOUR CONTINUE
 // ==========================================
-let wsUrl = 'ws://localhost:8000/ws/simulation';
-if (window.location.hostname.includes('github.dev')) { const backendHost = window.location.hostname.replace('5173', '8000'); wsUrl = `wss://${backendHost}/ws/simulation`; }
+let wsUrl = 'ws://localhost:8000/ws/simulation'; // Par défaut : PC Local
+
+if (window.location.hostname.includes('github.dev')) {
+  // CAS 1 : Tu codes sur GitHub Codespaces
+  const backendHost = window.location.hostname.replace('5173', '8000');
+  wsUrl = `wss://${backendHost}/ws/simulation`;
+}
+else if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+  // CAS 2 : Application en ligne (Production sur Vercel)
+  // ⚠️ Tu remplaceras ce lien par celui de Render à l'étape 3
+  wsUrl = 'wss://TON-APP-BACKEND.onrender.com/ws/simulation';
+}
+
 const ws = new WebSocket(wsUrl);
 
 ws.onopen = () => { statusText.innerText = "🟢 Connecté"; statusText.style.color = "#2ecc71"; };

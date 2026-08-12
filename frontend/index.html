@@ -1,183 +1,111 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Industrial Virtual Lab - 3D Simulation</title>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background-color: #1a1d24;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* =========================================
+       STYLES DE BASE
+       ========================================= */
+    body { margin: 0; padding: 0; overflow: hidden; background-color: #1a1d24; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    #app { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+    button { transition: filter 0.2s ease, transform 0.1s ease; }
+    button:hover:not([disabled]) { filter: brightness(1.2); }
+    button:active:not([disabled]) { transform: scale(0.95); }
+    
+    /* =========================================
+       PANNEAUX LATÉRAUX (PC)
+       ========================================= */
+    .side-panel { 
+      position: absolute; top: 10px; bottom: 10px; width: 350px; 
+      display: flex; flex-direction: column; gap: 10px; 
+      overflow-y: auto; pointer-events: none; z-index: 100; 
     }
+    #panel-left { left: 10px; }
+    #panel-right { right: 10px; }
 
-    #app {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 1;
+    .side-panel::-webkit-scrollbar { width: 6px; }
+    .side-panel::-webkit-scrollbar-thumb { background: rgba(127, 140, 141, 0.5); border-radius: 3px; }
+    
+    .ui-box { pointer-events: auto; background: rgba(26, 29, 36, 0.95); padding: 12px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+    .box-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+    .box-header h3 { margin: 0; font-size: 1rem; }
+    .box-header .toggle-icon { font-size: 0.7rem; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; transition: background 0.2s; }
+    .box-content { margin-top: 10px; }
+    .box-content.collapsed { display: none; }
+
+    #tooltip { position: absolute; display: none; background: rgba(0,0,0,0.85); color: #f1c40f; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; pointer-events: none; z-index: 1000; border: 1px solid #f39c12; }
+
+    /* Éléments internes des UI Boxes */
+    input[type=range] { width: 100%; cursor: pointer; margin: 8px 0; }
+    .select-lab { width: 100%; padding: 6px; margin-bottom: 8px; background: #34495e; color: white; border: 1px solid #7f8c8d; border-radius: 4px; font-weight: bold; font-size: 0.85rem;}
+    .heat-bar-container { width: 100%; background: #333; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 5px; }
+    .heat-bar-fill { height: 100%; width: 0%; background: #2ecc71; transition: width 0.2s, background 0.2s; }
+    .spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.8rem; color: #ecf0f1; background: #2c3e50; padding: 8px; border-radius: 4px;}
+    .spec-grid strong { color: #f39c12; }
+
+    /* =========================================
+       MODE SMARTPHONE (RESPONSIVE)
+       ========================================= */
+    .mobile-nav { 
+      display: none; position: absolute; top: 10px; left: 10px; right: 10px; 
+      z-index: 500; pointer-events: none; justify-content: space-between; gap: 10px;
     }
-
-    button {
-      transition: filter 0.2s ease, transform 0.1s ease;
+    .btn-mobile {
+      flex: 1; pointer-events: auto; background: #2c3e50; color: #ecf0f1;
+      border: 2px solid #34495e; padding: 12px 10px; border-radius: 8px;
+      font-weight: bold; font-size: 0.9rem; cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.5); transition: all 0.3s ease;
     }
+    .btn-mobile.active { background: #3498db; border-color: #2980b9; color: white; }
 
-    button:hover:not([disabled]) {
-      filter: brightness(1.2);
-    }
-
-    button:active:not([disabled]) {
-      transform: scale(0.95);
-    }
-
-    .side-panel {
-      position: absolute;
-      top: 10px;
-      bottom: 10px;
-      width: 350px;
-      padding: 10px;
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      overflow-y: auto;
-      pointer-events: none;
-      z-index: 100;
-    }
-
-    .side-panel::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .side-panel::-webkit-scrollbar-thumb {
-      background: rgba(127, 140, 141, 0.5);
-      border-radius: 3px;
-    }
-
-    .ui-box {
-      pointer-events: auto;
-      background: rgba(26, 29, 36, 0.95);
-      padding: 12px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
-    }
-
-    .box-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .box-header h3 {
-      margin: 0;
-      font-size: 1rem;
-    }
-
-    .box-header .toggle-icon {
-      font-size: 0.7rem;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 3px 8px;
-      border-radius: 4px;
-      transition: background 0.2s;
-    }
-
-    .box-content {
-      margin-top: 10px;
-    }
-
-    .box-content.collapsed {
-      display: none;
-    }
-
-    #tooltip {
-      position: absolute;
-      display: none;
-      background: rgba(0, 0, 0, 0.85);
-      color: #f1c40f;
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: bold;
-      pointer-events: none;
-      z-index: 1000;
-      border: 1px solid #f39c12;
-    }
-
-    input[type=range] {
-      width: 100%;
-      cursor: pointer;
-      margin: 8px 0;
-    }
-
-    .select-lab {
-      width: 100%;
-      padding: 6px;
-      margin-bottom: 8px;
-      background: #34495e;
-      color: white;
-      border: 1px solid #7f8c8d;
-      border-radius: 4px;
-      font-weight: bold;
-      font-size: 0.85rem;
-    }
-
-    .heat-bar-container {
-      width: 100%;
-      background: #333;
-      height: 10px;
-      border-radius: 5px;
-      overflow: hidden;
-      margin-top: 5px;
-    }
-
-    .heat-bar-fill {
-      height: 100%;
-      width: 0%;
-      background: #2ecc71;
-      transition: width 0.2s, background 0.2s;
-    }
-
-    .spec-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 5px;
-      font-size: 0.8rem;
-      color: #ecf0f1;
-      background: #2c3e50;
-      padding: 8px;
-      border-radius: 4px;
-    }
-
-    .spec-grid strong {
-      color: #f39c12;
+    @media (max-width: 850px) {
+      .mobile-nav { display: flex; } /* Affiche les boutons sur mobile */
+      
+      .side-panel {
+        top: 70px; height: calc(100vh - 80px);
+        width: calc(100% - 20px); max-width: 400px;
+        transition: transform 0.3s ease-in-out, opacity 0.3s;
+        opacity: 0; pointer-events: none; z-index: 200;
+        /* Ajout d'un fond léger pour mieux lire sur mobile */
+        background: rgba(26, 29, 36, 0.4); border-radius: 8px;
+      }
+      
+      /* Les panneaux sont cachés en dehors de l'écran par défaut */
+      #panel-left { left: 10px; transform: translateX(-110%); }
+      #panel-right { right: 10px; transform: translateX(110%); }
+      
+      /* Classe magique ajoutée par le JavaScript quand on clique sur le bouton */
+      #panel-left.open, #panel-right.open {
+        transform: translateX(0); opacity: 1; pointer-events: auto; 
+      }
     }
   </style>
 </head>
-
 <body>
-
+  
   <div id="app"></div>
   <div id="tooltip">Label</div>
 
-  <div class="side-panel" style="left: 0;">
+  <!-- BARRE DE NAVIGATION MOBILE (Invisible sur PC) -->
+  <div class="mobile-nav">
+    <button class="btn-mobile" id="btn-toggle-left">⚙️ Commandes</button>
+    <button class="btn-mobile" id="btn-toggle-right">🛠️ Outils</button>
+  </div>
+
+  <!-- COLONNE GAUCHE (panel-left) -->
+  <div class="side-panel" id="panel-left">
+    
     <div class="ui-box" style="border-left: 4px solid #3498db; color: white;">
       <h2 style="margin: 0 0 5px 0; font-size: 1.2rem;">🏭 Laboratoire Électromécanique</h2>
       <p id="status" style="margin: 0; font-weight: bold; color: #f1c40f;">Connexion au serveur...</p>
-      <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #bdc3c7;">Vitesse : <span id="ui-rpm"
-          style="color: #3498db; font-weight:bold;">0</span> tr/min</p>
+      <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #bdc3c7;">Vitesse : <span id="ui-rpm" style="color: #3498db; font-weight:bold;">0</span> tr/min</p>
     </div>
 
+    <!-- PARAMÉTRAGE LABO -->
     <div class="ui-box" style="border-left: 4px solid #1abc9c;">
-      <div class="box-header" style="color: #1abc9c;">
-        <h3>⚙️ Choix du Matériel</h3><span class="toggle-icon">▼</span>
-      </div>
+      <div class="box-header" style="color: #1abc9c;"><h3>⚙️ Choix du Matériel</h3><span class="toggle-icon">▼</span></div>
       <div class="box-content">
         <select id="sel-motor" class="select-lab">
           <option value="3.0_2p">Moteur 3 kW (2 Pôles)</option>
@@ -188,182 +116,142 @@
           <span>Pn: <strong id="spec-pn">-</strong> kW</span><span>In: <strong id="spec-in">-</strong> A</span>
           <span>Ns: <strong id="spec-ns">-</strong> tr/min</span><span>Cos φ: <strong id="spec-cos">-</strong></span>
         </div>
-        <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold; margin-top:10px; display:block;">Machine
-          Accouplée :</label>
+        <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold; margin-top:10px; display:block;">Machine Accouplée :</label>
         <select id="sel-load-type" class="select-lab">
           <option value="quadratic" selected>Ventilateur/Pompe (Quadratique)</option>
           <option value="constant">Convoyeur/Levage (Constant)</option>
           <option value="inertia">Broyeur (Forte Inertie)</option>
         </select>
-        <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold;">Charge : <span
-            id="load-val">50</span>%</label>
+        <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold;">Charge : <span id="load-val">50</span>%</label>
         <input type="range" id="slider-load" min="0" max="150" value="50">
         <div style="margin-top: 5px;">
-          <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold;">Chauffe Thermique F1 : <span
-              id="heat-val">0</span>%</label>
-          <div class="heat-bar-container">
-            <div id="heat-bar" class="heat-bar-fill"></div>
-          </div>
+          <label style="color: #ecf0f1; font-size: 0.8rem; font-weight: bold;">Chauffe Thermique F1 : <span id="heat-val">0</span>%</label>
+          <div class="heat-bar-container"><div id="heat-bar" class="heat-bar-fill"></div></div>
         </div>
       </div>
     </div>
 
+    <!-- GUIDE DYNAMIQUE -->
     <div class="ui-box" style="border-left: 4px solid #e67e22; background: rgba(211, 84, 0, 0.2);">
-      <div class="box-header" style="color: #f39c12;">
-        <h3>💡 Guide de Dimensionnement</h3><span class="toggle-icon">▼</span>
-      </div>
-      <div class="box-content">
-        <p id="dynamic-guide-text" style="color: #ecf0f1; font-size: 0.85rem; line-height: 1.4; margin: 0;">En
-          attente...</p>
-      </div>
+      <div class="box-header" style="color: #f39c12;"><h3>💡 Guide de Dimensionnement</h3><span class="toggle-icon">▼</span></div>
+      <div class="box-content"><p id="dynamic-guide-text" style="color: #ecf0f1; font-size: 0.85rem; line-height: 1.4; margin: 0;">En attente...</p></div>
     </div>
 
+    <!-- Contrôle & Couplage Manuel -->
     <div class="ui-box" style="border-left: 4px solid #9b59b6;">
-      <div class="box-header" style="color: #9b59b6;">
-        <h3>Contrôle & Couplage</h3><span class="toggle-icon">▶</span>
-      </div>
+      <div class="box-header" style="color: #9b59b6;"><h3>Contrôle & Couplage</h3><span class="toggle-icon">▶</span></div>
       <div class="box-content collapsed">
         <div style="display: flex; gap: 8px; margin-bottom:10px;">
-          <button id="btn-mode-direct"
-            style="flex: 1; background: #8e44ad; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">DIRECT</button>
-          <button id="btn-mode-sd"
-            style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">AUTO
-            Y/Δ</button>
+          <button id="btn-mode-direct" style="flex: 1; background: #8e44ad; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">DIRECT</button>
+          <button id="btn-mode-sd" style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">AUTO Y/Δ</button>
         </div>
-        <button id="btn-cover"
-          style="background: #34495e; color: white; padding: 8px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 8px; width: 100%;">OUVRIR
-          COUVERCLE</button>
-
-        <!-- NOUVEAU BOUTON : SANS BARRETTES -->
+        <button id="btn-cover" style="background: #34495e; color: white; padding: 8px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 8px; width: 100%;">OUVRIR COUVERCLE</button>
         <div style="display: flex; gap: 4px;">
-          <button id="btn-star" disabled
-            style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: not-allowed;">ÉTOILE</button>
-          <button id="btn-delta" disabled
-            style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: not-allowed;">TRIANGLE</button>
-          <button id="btn-none" disabled
-            style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: not-allowed;">SANS</button>
+          <button id="btn-star" disabled style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: not-allowed;">ÉTOILE</button>
+          <button id="btn-delta" disabled style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: not-allowed;">TRIANGLE</button>
+          <button id="btn-none" disabled style="flex: 1; background: #7f8c8d; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: not-allowed;">SANS</button>
         </div>
       </div>
     </div>
 
     <div class="ui-box" style="border-left: 4px solid #2ecc71;">
-      <div class="box-header" style="color: #2ecc71;">
-        <h3>Pupitre</h3><span class="toggle-icon">▼</span>
-      </div>
+      <div class="box-header" style="color: #2ecc71;"><h3>Pupitre</h3><span class="toggle-icon">▼</span></div>
       <div class="box-content">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-          <button id="btn-start"
-            style="background: #27ae60; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">START</button>
-          <button id="btn-stop"
-            style="background: #c0392b; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">STOP</button>
-          <button id="btn-trip"
-            style="background: #e67e22; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">DÉFAUT</button>
-          <button id="btn-reset"
-            style="background: #2980b9; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">RÉARMER</button>
+          <button id="btn-start" style="background: #27ae60; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">START</button>
+          <button id="btn-stop" style="background: #c0392b; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">STOP</button>
+          <button id="btn-trip" style="background: #e67e22; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">DÉFAUT</button>
+          <button id="btn-reset" style="background: #2980b9; color: white; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">RÉARMER</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="side-panel" style="right: 0;">
+  <!-- COLONNE DROITE (panel-right) -->
+  <div class="side-panel" id="panel-right">
+    
     <div class="ui-box" style="border-left: 4px solid #3498db;">
-      <div class="box-header" style="color: #3498db;">
-        <h3>📈 Oscilloscope</h3><span class="toggle-icon">▼</span>
-      </div>
-      <div class="box-content">
-        <div style="background: #111; padding: 5px; border-radius: 4px; height: 180px;"><canvas
-            id="oscillo-chart"></canvas></div>
-      </div>
+      <div class="box-header" style="color: #3498db;"><h3>📈 Oscilloscope</h3><span class="toggle-icon">▼</span></div>
+      <div class="box-content"><div style="background: #111; padding: 5px; border-radius: 4px; height: 180px;"><canvas id="oscillo-chart"></canvas></div></div>
     </div>
 
     <div class="ui-box" style="border-left: 4px solid #e74c3c; text-align: center;">
-      <div class="box-header" style="color: #ecf0f1;">
-        <h3>Multimètre Numérique</h3><span class="toggle-icon">▶</span>
-      </div>
+      <div class="box-header" style="color: #ecf0f1;"><h3>Multimètre Numérique</h3><span class="toggle-icon">▶</span></div>
       <div class="box-content collapsed">
         <div style="display: flex; gap: 4px; margin-bottom: 10px;">
-          <button id="btn-mm-v"
-            style="flex: 1; background: #e74c3c; color: white; border: none; padding: 6px; border-radius: 3px; font-weight: bold; cursor: pointer;">V</button>
-          <button id="btn-mm-ohm"
-            style="flex: 1; background: #7f8c8d; color: white; border: none; padding: 6px; border-radius: 3px; font-weight: bold; cursor: pointer;">Ω</button>
-          <button id="btn-mm-mega"
-            style="flex: 1; background: #7f8c8d; color: white; border: none; padding: 6px; border-radius: 3px; font-weight: bold; cursor: pointer;">MΩ</button>
+          <button id="btn-mm-v" style="flex: 1; background: #e74c3c; color: white; border: none; padding: 6px; border-radius: 3px; font-weight: bold; cursor: pointer;">V</button>
+          <button id="btn-mm-ohm" style="flex: 1; background: #7f8c8d; color: white; border: none; padding: 6px; border-radius: 3px; font-weight: bold; cursor: pointer;">Ω</button>
+          <button id="btn-mm-mega" style="flex: 1; background: #7f8c8d; color: white; border: none; padding: 6px; border-radius: 3px; font-weight: bold; cursor: pointer;">MΩ</button>
         </div>
-        <div id="mega-voltage-container"
-          style="display: none; margin-bottom: 10px; background: rgba(0,0,0,0.4); padding: 5px; border-radius: 4px;">
+        <div id="mega-voltage-container" style="display: none; margin-bottom: 10px; background: rgba(0,0,0,0.4); padding: 5px; border-radius: 4px;">
           <label style="color: #bdc3c7; font-size: 0.8rem; margin-right: 5px;">Tension (VDC):</label>
-          <select id="sel-mega-voltage" class="select-lab" style="margin:0; width:auto; padding:2px;">
-            <option value="50">50 V</option>
-            <option value="500" selected>500 V</option>
-          </select>
+          <select id="sel-mega-voltage" class="select-lab" style="margin:0; width:auto; padding:2px;"><option value="50">50 V</option><option value="500" selected>500 V</option></select>
         </div>
-        <div
-          style="background: #a8cf45; padding: 10px; border-radius: 4px; border: inset 3px #7b9933; margin-bottom: 10px; position: relative;">
-          <span id="mm-unit"
-            style="position: absolute; top: 4px; left: 6px; font-size: 0.7rem; font-weight: bold; color: #111;">AC
-            V</span>
-          <span id="multimeter-display"
-            style="font-family: 'Courier New', monospace; font-size: 1.5rem; font-weight: bold; color: #111;">---</span>
+        <div style="background: #a8cf45; padding: 10px; border-radius: 4px; border: inset 3px #7b9933; margin-bottom: 10px; position: relative;">
+          <span id="mm-unit" style="position: absolute; top: 4px; left: 6px; font-size: 0.7rem; font-weight: bold; color: #111;">AC V</span>
+          <span id="multimeter-display" style="font-family: 'Courier New', monospace; font-size: 1.5rem; font-weight: bold; color: #111;">---</span>
         </div>
         <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-          <button id="btn-probe-red"
-            style="flex: 1; background: #c0392b; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">🔴
-            SONDE</button>
-          <button id="btn-probe-black"
-            style="flex: 1; background: #111; border: 1px solid #7f8c8d; color: white; padding: 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">⚫
-            SONDE</button>
+          <button id="btn-probe-red" style="flex: 1; background: #c0392b; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">🔴 SONDE</button>
+          <button id="btn-probe-black" style="flex: 1; background: #111; border: 1px solid #7f8c8d; color: white; padding: 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">⚫ SONDE</button>
         </div>
-        <button id="btn-remove-probes"
-          style="width: 100%; background: #95a5a6; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; margin-bottom: 8px;">⏏️
-          RETIRER LES SONDES</button>
-        <div
-          style="display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px; border: 1px solid #e74c3c;">
+        <button id="btn-remove-probes" style="width: 100%; background: #95a5a6; color: white; padding: 8px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; margin-bottom: 8px;">⏏️ RETIRER LES SONDES</button>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px; border: 1px solid #e74c3c;">
           <input type="checkbox" id="chk-bypass" style="cursor: pointer; width: 16px; height: 16px;" />
-          <label for="chk-bypass" style="color: #e74c3c; font-size: 0.8rem; font-weight: bold; cursor: pointer;">BYPASS
-            SÉCURITÉ</label>
+          <label for="chk-bypass" style="color: #e74c3c; font-size: 0.8rem; font-weight: bold; cursor: pointer;">BYPASS SÉCURITÉ</label>
         </div>
       </div>
     </div>
 
     <div class="ui-box" style="border-left: 4px solid #f1c40f;">
-      <div class="box-header" style="color: #f1c40f;">
-        <h3>🛠️ Dépannage & Magasin</h3><span class="toggle-icon">▶</span>
-      </div>
+      <div class="box-header" style="color: #f1c40f;"><h3>🛠️ Dépannage & Magasin</h3><span class="toggle-icon">▶</span></div>
       <div class="box-content collapsed">
-        <button id="btn-fault"
-          style="width: 100%; background: #c0392b; color: white; border: 1px solid white; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">INJECTER
-          PANNE</button>
-        <div id="fault-clue-box"
-          style="display: none; background: #8e44ad; padding: 10px; border-radius: 4px; border: 1px solid #fff; margin-bottom: 8px;">
+        <button id="btn-fault" style="width: 100%; background: #c0392b; color: white; border: 1px solid white; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">INJECTER PANNE</button>
+        <div id="fault-clue-box" style="display: none; background: #8e44ad; padding: 10px; border-radius: 4px; border: 1px solid #fff; margin-bottom: 8px;">
           <strong style="color: #fff; font-size: 0.9rem;">🔎 Indice :</strong>
-          <p id="fault-clue-text" style="margin: 5px 0 0 0; color: #ecf0f1; font-size: 0.85rem; line-height: 1.3;">...
-          </p>
+          <p id="fault-clue-text" style="margin: 5px 0 0 0; color: #ecf0f1; font-size: 0.85rem; line-height: 1.3;">...</p>
         </div>
         <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
-          <button id="btn-rep-km1"
-            style="background: #2980b9; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remplacer
-            KM1</button>
-          <button id="btn-rep-km2"
-            style="background: #2980b9; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remplacer
-            KM2</button>
-          <button id="btn-rep-km3"
-            style="background: #2980b9; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remplacer
-            KM3</button>
+          <button id="btn-rep-km1" style="background: #2980b9; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remplacer KM1</button>
+          <button id="btn-rep-km2" style="background: #2980b9; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remplacer KM2</button>
+          <button id="btn-rep-km3" style="background: #2980b9; color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Remplacer KM3</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- SCRIPT LOGIQUE ACCORDÉON ET MOBILE -->
   <script>
+    // 1. Logique des Accordéons (Flèches Haut/Bas)
     document.querySelectorAll('.box-header').forEach(header => {
       header.addEventListener('click', () => {
         const content = header.nextElementSibling; const icon = header.querySelector('.toggle-icon');
-        if (content.classList.contains('collapsed')) { content.classList.remove('collapsed'); if (icon) icon.innerText = '▼'; }
-        else { content.classList.add('collapsed'); if (icon) icon.innerText = '▶'; }
+        if (content.classList.contains('collapsed')) { content.classList.remove('collapsed'); if(icon) icon.innerText = '▼'; } 
+        else { content.classList.add('collapsed'); if(icon) icon.innerText = '▶'; }
       });
     });
+
+    // 2. Logique de la Navigation Mobile (Tiroirs)
+    const pLeft = document.getElementById('panel-left');
+    const pRight = document.getElementById('panel-right');
+    const bLeft = document.getElementById('btn-toggle-left');
+    const bRight = document.getElementById('btn-toggle-right');
+
+    bLeft.addEventListener('click', () => {
+      pLeft.classList.toggle('open');
+      pRight.classList.remove('open');
+      bLeft.classList.toggle('active', pLeft.classList.contains('open'));
+      bRight.classList.remove('active');
+    });
+
+    bRight.addEventListener('click', () => {
+      pRight.classList.toggle('open');
+      pLeft.classList.remove('open');
+      bRight.classList.toggle('active', pRight.classList.contains('open'));
+      bLeft.classList.remove('active');
+    });
   </script>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
-
 </html>

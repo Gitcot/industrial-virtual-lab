@@ -466,7 +466,7 @@ if (window.location.hostname.includes('github.dev')) {
 else if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
   // CAS 2 : Application en ligne (Production sur Vercel)
   // ⚠️ Tu remplaceras ce lien par celui de Render à l'étape 3
-  wsUrl = 'wss://[industrial-lab-backend.onrender.com/ws/simulation](https://industrial-lab-backend.onrender.com/ws/simulation)';
+  wsUrl = 'wss://industrial-lab-backend.onrender.com/ws/simulation';
 }
 
 const ws = new WebSocket(wsUrl);

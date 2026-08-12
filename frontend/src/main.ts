@@ -611,15 +611,54 @@ window.addEventListener('pointerup', () => {
   }
 });
 
-const setupHTMLButton = (btnId: string, targetId: string) => {
-  const btn = document.getElementById(btnId); if (!btn) return;
-  btn.addEventListener('mousedown', () => sendAction(targetId, 'pulse', 'press')); btn.addEventListener('mouseup', () => sendAction(targetId, 'pulse', 'release')); btn.addEventListener('mouseleave', () => sendAction(targetId, 'pulse', 'release'));
-};
-setupHTMLButton('btn-start', 'btn_start'); setupHTMLButton('btn-stop', 'btn_stop');
-document.getElementById('btn-trip')?.addEventListener('click', () => sendAction('thermal_f1', 'trip', 'press'));
-document.getElementById('btn-reset')?.addEventListener('mousedown', () => { if (panelLedBlueMat) panelLedBlueMat.emissive.setHex(0x0088ff); sendAction('thermal_f1', 'reset', 'press'); });
-document.getElementById('btn-reset')?.addEventListener('mouseup', () => { if (panelLedBlueMat) panelLedBlueMat.emissive.setHex(0x000000); });
+// Fonction utilitaire pour une réactivité mobile instantanée (0ms delay)
+function bindFastClick(btnId: string, onPress: () => void, onRelease?: () => void) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
 
+  let isPressed = false;
+
+  const handlePress = (e: Event) => {
+    e.preventDefault(); // Bloque le délai mobile natif
+    if (!isPressed) { isPressed = true; onPress(); }
+  };
+
+  const handleRelease = (e: Event) => {
+    e.preventDefault();
+    if (isPressed) { isPressed = false; if (onRelease) onRelease(); }
+  };
+
+  // Écoute tactile (Smartphone) ET Souris (PC)
+  btn.addEventListener('mousedown', handlePress);
+  btn.addEventListener('touchstart', handlePress, { passive: false });
+
+  if (onRelease) {
+    btn.addEventListener('mouseup', handleRelease);
+    btn.addEventListener('touchend', handleRelease);
+    btn.addEventListener('mouseleave', handleRelease);
+    btn.addEventListener('touchcancel', handleRelease);
+  }
+}
+
+// Application aux boutons du pupitre
+bindFastClick('btn-start',
+  () => sendAction('btn_start', 'pulse', 'press'),
+  () => sendAction('btn_start', 'pulse', 'release')
+);
+
+bindFastClick('btn-stop',
+  () => sendAction('btn_stop', 'pulse', 'press'),
+  () => sendAction('btn_stop', 'pulse', 'release')
+);
+
+bindFastClick('btn-trip',
+  () => sendAction('thermal_f1', 'trip', 'press')
+);
+
+bindFastClick('btn-reset',
+  () => { if (panelLedBlueMat) panelLedBlueMat.emissive.setHex(0x0088ff); sendAction('thermal_f1', 'reset', 'press'); },
+  () => { if (panelLedBlueMat) panelLedBlueMat.emissive.setHex(0x000000); }
+);
 let lastTime = performance.now();
 function animate() {
   requestAnimationFrame(animate);

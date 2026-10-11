@@ -2,7 +2,7 @@
   "name": "Industrial Virtual Lab",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {
+    "ghcr.io/devcontainers/features/node:2": {
       "version": "20"
     }
   },
